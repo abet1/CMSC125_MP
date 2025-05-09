@@ -329,7 +329,7 @@ public class GameBoard extends JPanel {
      * Shows a pause message on the board
      */
     public void showPauseMessage() {
-        message = "PAUSED";
+        message = "PAUSED\nM = Menu";
         repaint();
     }
 
@@ -337,7 +337,7 @@ public class GameBoard extends JPanel {
      * Shows a game over message on the board
      */
     public void showGameOverMessage() {
-        message = "GAME OVER";
+        message = "GAME OVER\nR = Restart\nM = Menu";
         repaint();
     }
 
@@ -415,12 +415,22 @@ public class GameBoard extends JPanel {
             g2d.setColor(Color.WHITE);
             g2d.setFont(new Font("Arial", Font.BOLD, 30));
             FontMetrics fm = g2d.getFontMetrics();
-            int messageWidth = fm.stringWidth(message);
-
-            g2d.drawString(message, (getWidth() - messageWidth) / 2, getHeight() / 2);
+            
+            // Split message into lines and draw each line
+            String[] lines = message.split("\n");
+            int lineHeight = fm.getHeight();
+            int totalHeight = lineHeight * lines.length;
+            int startY = (getHeight() - totalHeight) / 2;
+            
+            for (int i = 0; i < lines.length; i++) {
+                int messageWidth = fm.stringWidth(lines[i]);
+                g2d.drawString(lines[i], 
+                    (getWidth() - messageWidth) / 2, 
+                    startY + (i * lineHeight));
+            }
 
             // If the game is paused, this message will clear when unpaused
-            if (message.equals("PAUSED") && !gameInstance.isPaused()) {
+            if (message.startsWith("PAUSED") && !gameInstance.isPaused()) {
                 message = null;
             }
         }

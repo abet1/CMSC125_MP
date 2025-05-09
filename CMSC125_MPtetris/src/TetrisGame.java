@@ -150,6 +150,28 @@ public class TetrisGame extends JFrame {
         inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_C, 0), "holdPiece");
         inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_P, 0), "pause");
 
+        // Add menu return key binding
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_M, 0), "returnToMenu");
+        actionMap.put("returnToMenu", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (isPaused.get() || isGameOver.get()) {
+                    returnToMenu();
+                }
+            }
+        });
+
+        // Add restart key binding
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_R, 0), "restartGame");
+        actionMap.put("restartGame", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (isGameOver.get()) {
+                    restartGame();
+                }
+            }
+        });
+
         // Define actions for key bindings
         actionMap.put("moveLeft", new AbstractAction() {
             @Override
@@ -351,6 +373,44 @@ public class TetrisGame extends JFrame {
      */
     public ReentrantLock getGameLock() {
         return gameLock;
+    }
+
+    /**
+     * Restarts the game
+     */
+    private void restartGame() {
+        // Reset game state
+        score = 0;
+        level = 1;
+        linesCleared = 0;
+        isGameOver.set(false);
+        isPaused.set(false);
+        
+        // Update score display
+        updateScoreLabels();
+        
+        // Reset the game board
+        gameBoard.resetBoard();
+        gameBoard.initializeGame();
+        
+        // Clear any messages
+        gameBoard.clearMessage();
+        
+        // Restart the game thread
+        if (gameThread != null && gameThread.isAlive()) {
+            gameThread.interrupt();
+        }
+        gameThread = new GameThread();
+        gameThread.start();
+    }
+
+    /**
+     * Returns to the start menu
+     */
+    private void returnToMenu() {
+        dispose(); // Close the game window
+        StartScreen startScreen = new StartScreen();
+        startScreen.setVisible(true);
     }
 
     /**

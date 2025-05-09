@@ -4,9 +4,8 @@
 public class TetrisApp {
     public static void main(String[] args) {
         javax.swing.SwingUtilities.invokeLater(() -> {
-            TetrisGame game = new TetrisGame();
-            game.setVisible(true);
-            game.startGame();
+            StartScreen startScreen = new StartScreen();
+            startScreen.setVisible(true);
         });
     }
 }
