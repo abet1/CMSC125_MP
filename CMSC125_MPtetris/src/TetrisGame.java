@@ -34,6 +34,7 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
     private final ReentrantLock gameLock = new ReentrantLock();
     private final AtomicBoolean isPaused = new AtomicBoolean(false);
     private final AtomicBoolean isGameOver = new AtomicBoolean(false);
+    private SoundManager soundManager;
 
     /**
      * Constructor sets up the game window, components, and initializes the UI.
@@ -42,6 +43,9 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
         setTitle("Multi-threaded Tetris");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
+
+        // Initialize sound manager for single player
+        soundManager = new SoundManager(false);
 
         // Set up the main game panels
         setupGameComponents();
@@ -282,6 +286,9 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
         isPaused.set(!isPaused.get());
         if (isPaused.get()) {
             gameBoard.showPauseMessage();
+            soundManager.stopBackgroundMusic();
+        } else {
+            soundManager.playBackgroundMusic();
         }
     }
 
@@ -308,6 +315,9 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
 
             // Update UI
             updateScoreLabels();
+            
+            // Play line clear sound
+            soundManager.playLineClearSound();
         }
     }
 
@@ -341,6 +351,7 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
      */
     public void startGame() {
         gameThread.start();
+        soundManager.playBackgroundMusic();
     }
 
     /**
@@ -349,6 +360,8 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
     public void gameOver() {
         isGameOver.set(true);
         gameBoard.showGameOverMessage();
+        soundManager.playGameOverSound();
+        soundManager.stopBackgroundMusic();
     }
 
     /**
@@ -410,12 +423,17 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
         }
         gameThread = new GameThread();
         gameThread.start();
+        
+        // Restart background music
+        soundManager.stopBackgroundMusic();
+        soundManager.playBackgroundMusic();
     }
 
     /**
      * Returns to the start menu
      */
     private void returnToMenu() {
+        soundManager.cleanup();
         dispose(); // Close the game window
         StartScreen startScreen = new StartScreen();
         startScreen.setVisible(true);
@@ -456,5 +474,9 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
                 }
             }
         }
+    }
+
+    public void playPieceDropSound() {
+        soundManager.playPieceDropSound();
     }
 }

@@ -243,6 +243,11 @@ public class GameBoard extends JPanel {
             }
         }
 
+        // Play piece drop sound
+        if (gameInstance instanceof TetrisGame) {
+            ((TetrisGame) gameInstance).playPieceDropSound();
+        }
+
         // Check for completed lines
         int linesCleared = clearLines();
         gameInstance.updateScore(linesCleared);
