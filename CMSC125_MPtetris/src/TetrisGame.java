@@ -9,7 +9,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * and game state. This class demonstrates multi-threading by separating game
  * logic and rendering into different threads.
  */
-public class TetrisGame extends JFrame {
+public class TetrisGame extends JFrame implements TetrisGameInterface {
     // Game constants
     private static final int BOARD_WIDTH = 10;
     private static final int BOARD_HEIGHT = 20;
@@ -67,24 +67,30 @@ public class TetrisGame extends JFrame {
         // Side panel for score, next piece, etc.
         JPanel sidePanel = new JPanel();
         sidePanel.setLayout(new BoxLayout(sidePanel, BoxLayout.Y_AXIS));
+        sidePanel.setBackground(new Color(44, 62, 80));
         sidePanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         // Next piece preview
         JLabel nextPieceLabel = new JLabel("Next Piece:");
+        nextPieceLabel.setForeground(Color.WHITE);
         nextPiecePanel = new PreviewPanel(PREVIEW_SIZE, BLOCK_SIZE);
         nextPiecePanel.setPreferredSize(new Dimension(PREVIEW_SIZE * BLOCK_SIZE, PREVIEW_SIZE * BLOCK_SIZE));
         nextPiecePanel.setBorder(BorderFactory.createLineBorder(Color.GRAY));
 
         // Hold piece panel
         JLabel holdPieceLabel = new JLabel("Hold Piece:");
+        holdPieceLabel.setForeground(Color.WHITE);
         holdPiecePanel = new PreviewPanel(PREVIEW_SIZE, BLOCK_SIZE);
         holdPiecePanel.setPreferredSize(new Dimension(PREVIEW_SIZE * BLOCK_SIZE, PREVIEW_SIZE * BLOCK_SIZE));
         holdPiecePanel.setBorder(BorderFactory.createLineBorder(Color.GRAY));
 
         // Score display
         scoreLabel = new JLabel("Score: 0");
+        scoreLabel.setForeground(Color.WHITE);
         levelLabel = new JLabel("Level: 1");
+        levelLabel.setForeground(Color.WHITE);
         linesLabel = new JLabel("Lines: 0");
+        linesLabel.setForeground(Color.WHITE);
 
         // Add components to side panel
         sidePanel.add(nextPieceLabel);
@@ -100,13 +106,13 @@ public class TetrisGame extends JFrame {
         sidePanel.add(levelLabel);
         sidePanel.add(Box.createRigidArea(new Dimension(0, 5)));
         sidePanel.add(linesLabel);
-        sidePanel.add(Box.createRigidArea(new Dimension(0, 20)));
 
         // Add controls info
         addControlsInfo(sidePanel);
 
         // Main layout
         JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBackground(new Color(44, 62, 80));
         mainPanel.add(gameBoard, BorderLayout.CENTER);
         mainPanel.add(sidePanel, BorderLayout.EAST);
 
@@ -128,7 +134,9 @@ public class TetrisGame extends JFrame {
         };
 
         for (String control : controls) {
-            sidePanel.add(new JLabel(control));
+            JLabel label = new JLabel(control);
+            label.setForeground(Color.WHITE);
+            sidePanel.add(label);
             sidePanel.add(Box.createRigidArea(new Dimension(0, 5)));
         }
     }

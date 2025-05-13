@@ -23,19 +23,16 @@ public class StartScreen extends JFrame {
         setLocationRelativeTo(null);
         setResizable(false);
 
-        // Main panel setup with dark theme
         JPanel mainPanel = new JPanel();
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
         mainPanel.setBackground(new Color(44, 62, 80));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(50, 20, 50, 20));
 
-        // Game title
         JLabel titleLabel = new JLabel("TETRIS");
         titleLabel.setFont(new Font("Arial", Font.BOLD, 48));
         titleLabel.setForeground(Color.WHITE);
         titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // Start button with custom styling
         JButton startButton = new JButton("Start Game");
         startButton.setFont(new Font("Arial", Font.PLAIN, 20));
         startButton.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -45,26 +42,19 @@ public class StartScreen extends JFrame {
         startButton.setFocusPainted(false);
         startButton.setBorderPainted(false);
 
-        // Create action for starting game
         Action startAction = new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                TetrisGame game = new TetrisGame();
-                game.setVisible(true);
-                game.startGame();
-                dispose(); // Close start screen
+                startGame();
             }
         };
 
-        // Add action listener to start button
         startButton.addActionListener(startAction);
 
-        // Add key binding for Enter key
         mainPanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
             KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "startGame");
         mainPanel.getActionMap().put("startGame", startAction);
 
-        // Add components to main panel
         mainPanel.add(Box.createVerticalGlue());
         mainPanel.add(titleLabel);
         mainPanel.add(Box.createVerticalStrut(50));
@@ -73,9 +63,14 @@ public class StartScreen extends JFrame {
 
         add(mainPanel);
         
-        // Make sure the panel can receive focus for key bindings
         mainPanel.setFocusable(true);
         mainPanel.requestFocusInWindow();
+    }
+
+    private void startGame() {
+        GameModeScreen modeScreen = new GameModeScreen();
+        modeScreen.setVisible(true);
+        dispose();
     }
 
     /**

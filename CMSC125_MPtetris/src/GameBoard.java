@@ -22,10 +22,12 @@ public class GameBoard extends JPanel {
     private int currentX;
     private int currentY;
     private final Random random = new Random();
-    private final TetrisGame gameInstance;
+    private final TetrisGameInterface gameInstance;
 
     // Messages
     private String message = null;
+
+    private int lastLinesCleared = 0;
 
     /**
      * Constructor for the game board
@@ -34,7 +36,7 @@ public class GameBoard extends JPanel {
      * @param height Height of the board in blocks
      * @param blockSize Size of each block in pixels
      */
-    public GameBoard(TetrisGame game, int width, int height, int blockSize) {
+    public GameBoard(TetrisGameInterface game, int width, int height, int blockSize) {
         this.gameInstance = game;
         this.BOARD_WIDTH = width;
         this.BOARD_HEIGHT = height;
@@ -290,6 +292,7 @@ public class GameBoard extends JPanel {
             }
         }
 
+        this.lastLinesCleared = linesCleared;
         return linesCleared;
     }
 
@@ -336,9 +339,14 @@ public class GameBoard extends JPanel {
     /**
      * Shows a game over message on the board
      */
-    public void showGameOverMessage() {
-        message = "GAME OVER\nR = Restart\nM = Menu";
+    public void showGameOverMessage(String message) {
+        this.message = message;
         repaint();
+    }
+
+    // Keep the original method for backward compatibility
+    public void showGameOverMessage() {
+        showGameOverMessage("GAME OVER\nR = Restart\nM = Menu");
     }
 
     /**
@@ -563,5 +571,17 @@ public class GameBoard extends JPanel {
     @Override
     public Dimension getPreferredSize() {
         return new Dimension(BOARD_WIDTH * BLOCK_SIZE, BOARD_HEIGHT * BLOCK_SIZE);
+    }
+
+    public Tetromino getNextPiece() {
+        return nextPiece;
+    }
+
+    public Tetromino getHoldPiece() {
+        return holdPiece;
+    }
+
+    public int getLastLinesCleared() {
+        return lastLinesCleared;
     }
 }
