@@ -1,5 +1,6 @@
 import javax.swing.*;
 import java.awt.*;
+import java.awt.geom.*;
 
 /**
  * The PreviewPanel class is responsible for displaying the next piece
@@ -9,6 +10,7 @@ public class PreviewPanel extends JPanel {
     private final int SIZE;
     private final int BLOCK_SIZE;
     private Tetromino piece;
+    private float glowPhase = 0;
 
     /**
      * Constructor for the preview panel
@@ -18,8 +20,15 @@ public class PreviewPanel extends JPanel {
     public PreviewPanel(int size, int blockSize) {
         this.SIZE = size;
         this.BLOCK_SIZE = blockSize;
-        setBackground(Color.BLACK);
+        setOpaque(false);
         setPreferredSize(new Dimension(SIZE * BLOCK_SIZE, SIZE * BLOCK_SIZE));
+
+        // Start glow animation
+        Timer glowTimer = new Timer(50, e -> {
+            glowPhase = (glowPhase + 0.1f) % (float)(Math.PI * 2);
+            repaint();
+        });
+        glowTimer.start();
     }
 
     /**
@@ -37,67 +46,121 @@ public class PreviewPanel extends JPanel {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        Graphics2D g2d = (Graphics2D) g;
+        Graphics2D g2d = (Graphics2D) g.create();
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // Draw background
-        g2d.setColor(Color.BLACK);
-        g2d.fillRect(0, 0, getWidth(), getHeight());
+        // Draw panel background
+        drawPanelBackground(g2d);
 
         // Draw piece if there is one
         if (piece != null) {
             int[][] shape = piece.getShape();
             int color = piece.getColor();
-            int width = shape[0].length;
-            int height = shape.length;
+            
+            // Calculate piece dimensions
+            int pieceWidth = 0;
+            int pieceHeight = 0;
+            for (int i = 0; i < shape.length; i++) {
+                for (int j = 0; j < shape[i].length; j++) {
+                    if (shape[i][j] == 1) {
+                        pieceWidth = Math.max(pieceWidth, j + 1);
+                        pieceHeight = Math.max(pieceHeight, i + 1);
+                    }
+                }
+            }
+
+            // Calculate block size to fit the piece
+            int maxBlockSize = Math.min(getWidth() / Math.max(pieceWidth, 1), 
+                                      getHeight() / Math.max(pieceHeight, 1));
+            int actualBlockSize = Math.min(maxBlockSize, BLOCK_SIZE);
 
             // Calculate centering offsets
-            int offsetX = (SIZE - width) * BLOCK_SIZE / 2;
-            int offsetY = (SIZE - height) * BLOCK_SIZE / 2;
+            int totalWidth = pieceWidth * actualBlockSize;
+            int totalHeight = pieceHeight * actualBlockSize;
+            int offsetX = (getWidth() - totalWidth) / 2;
+            int offsetY = (getHeight() - totalHeight) / 2;
 
-            // Draw each block of the piece
-            for (int i = 0; i < height; i++) {
-                for (int j = 0; j < width; j++) {
+            // Draw each block of the piece with glow effect
+            for (int i = 0; i < pieceHeight; i++) {
+                for (int j = 0; j < pieceWidth; j++) {
                     if (shape[i][j] == 1) {
-                        drawBlock(g2d, offsetX + j * BLOCK_SIZE, offsetY + i * BLOCK_SIZE, color);
+                        drawGlowingBlock(g2d, 
+                            offsetX + j * actualBlockSize, 
+                            offsetY + i * actualBlockSize, 
+                            color,
+                            actualBlockSize);
                     }
                 }
             }
         }
+
+        g2d.dispose();
     }
 
-    /**
-     * Draws a single block at the specified position
-     * @param g2d Graphics context
-     * @param x X position in pixels
-     * @param y Y position in pixels
-     * @param colorIndex Color index of the block
-     */
-    private void drawBlock(Graphics2D g2d, int x, int y, int colorIndex) {
+    private void drawPanelBackground(Graphics2D g2d) {
+        // Create rounded rectangle for the panel
+        int arc = 15;
+        RoundRectangle2D.Float panelShape = new RoundRectangle2D.Float(
+            0, 0, getWidth() - 1, getHeight() - 1, arc, arc
+        );
+
+        // Draw semi-transparent background
+        g2d.setColor(new Color(0, 0, 0, 180));
+        g2d.fill(panelShape);
+
+        // Draw border with glow effect
+        float borderGlow = (float)(Math.sin(glowPhase) + 1) * 0.5f;
+        for (int i = 3; i > 0; i--) {
+            g2d.setColor(new Color(
+                UITheme.ACCENT_PRIMARY.getRed(),
+                UITheme.ACCENT_PRIMARY.getGreen(),
+                UITheme.ACCENT_PRIMARY.getBlue(),
+                (int)(borderGlow * 255 / (i * 2))
+            ));
+            g2d.setStroke(new BasicStroke(i * 2));
+            g2d.draw(panelShape);
+        }
+    }
+
+    private void drawGlowingBlock(Graphics2D g2d, int x, int y, int colorIndex, int blockSize) {
         Color[] colors = {
-                Color.BLACK,      // 0 - Empty
-                Color.CYAN,       // 1 - I piece
-                Color.BLUE,       // 2 - J piece
-                Color.ORANGE,     // 3 - L piece
-                Color.YELLOW,     // 4 - O piece
-                Color.GREEN,      // 5 - S piece
-                Color.MAGENTA,    // 6 - T piece
-                Color.RED         // 7 - Z piece
+            Color.BLACK,      // 0 - Empty
+            new Color(0, 255, 255),  // 1 - I piece (Cyan)
+            new Color(0, 0, 255),    // 2 - J piece (Blue)
+            new Color(255, 165, 0),  // 3 - L piece (Orange)
+            new Color(255, 255, 0),  // 4 - O piece (Yellow)
+            new Color(0, 255, 0),    // 5 - S piece (Green)
+            new Color(255, 0, 255),  // 6 - T piece (Magenta)
+            new Color(255, 0, 0)     // 7 - Z piece (Red)
         };
 
-        Color color = colors[colorIndex];
+        Color baseColor = colors[colorIndex];
+        float glow = (float)(Math.sin(glowPhase) + 1) * 0.5f;
+        
+        // Draw outer glow
+        for (int i = 3; i > 0; i--) {
+            g2d.setColor(new Color(
+                baseColor.getRed(),
+                baseColor.getGreen(),
+                baseColor.getBlue(),
+                (int)(glow * 255 / (i * 2))
+            ));
+            g2d.fillRoundRect(
+                x - i * 2,
+                y - i * 2,
+                blockSize + i * 4,
+                blockSize + i * 4,
+                8,
+                8
+            );
+        }
 
-        // Fill block
-        g2d.setColor(color);
-        g2d.fillRect(x + 1, y + 1, BLOCK_SIZE - 2, BLOCK_SIZE - 2);
+        // Draw main block
+        g2d.setColor(baseColor);
+        g2d.fillRoundRect(x + 1, y + 1, blockSize - 2, blockSize - 2, 4, 4);
 
-        // Highlight
-        g2d.setColor(color.brighter());
-        g2d.drawLine(x + 1, y + 1, x + 1, y + BLOCK_SIZE - 2);
-        g2d.drawLine(x + 1, y + 1, x + BLOCK_SIZE - 2, y + 1);
-
-        // Shadow
-        g2d.setColor(color.darker());
-        g2d.drawLine(x + BLOCK_SIZE - 2, y + 1, x + BLOCK_SIZE - 2, y + BLOCK_SIZE - 2);
-        g2d.drawLine(x + 1, y + BLOCK_SIZE - 2, x + BLOCK_SIZE - 2, y + BLOCK_SIZE - 2);
+        // Draw highlight
+        g2d.setColor(new Color(255, 255, 255, (int)(glow * 100)));
+        g2d.fillRoundRect(x + 3, y + 3, blockSize - 12, blockSize - 12, 2, 2);
     }
 }

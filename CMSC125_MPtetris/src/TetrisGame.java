@@ -68,81 +68,112 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
         gameBoard = new GameBoard(this, BOARD_WIDTH, BOARD_HEIGHT, BLOCK_SIZE);
         gameBoard.setPreferredSize(new Dimension(BOARD_WIDTH * BLOCK_SIZE, BOARD_HEIGHT * BLOCK_SIZE));
 
-        // Side panel for score, next piece, etc.
-        JPanel sidePanel = new JPanel();
+        // Create styled side panel
+        JPanel sidePanel = UITheme.createStyledPanel();
         sidePanel.setLayout(new BoxLayout(sidePanel, BoxLayout.Y_AXIS));
-        sidePanel.setBackground(new Color(44, 62, 80));
-        sidePanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        sidePanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        sidePanel.setPreferredSize(new Dimension(200, BOARD_HEIGHT * BLOCK_SIZE));
 
-        // Next piece preview
-        JLabel nextPieceLabel = new JLabel("Next Piece:");
-        nextPieceLabel.setForeground(Color.WHITE);
+        // Next piece section
+        JLabel nextPieceLabel = UITheme.createStyledLabel("NEXT PIECE", UITheme.SUBTITLE_FONT);
+        nextPieceLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         nextPiecePanel = new PreviewPanel(PREVIEW_SIZE, BLOCK_SIZE);
-        nextPiecePanel.setPreferredSize(new Dimension(PREVIEW_SIZE * BLOCK_SIZE, PREVIEW_SIZE * BLOCK_SIZE));
-        nextPiecePanel.setBorder(BorderFactory.createLineBorder(Color.GRAY));
+        nextPiecePanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // Hold piece panel
-        JLabel holdPieceLabel = new JLabel("Hold Piece:");
-        holdPieceLabel.setForeground(Color.WHITE);
+        // Hold piece section
+        JLabel holdPieceLabel = UITheme.createStyledLabel("HOLD PIECE", UITheme.SUBTITLE_FONT);
+        holdPieceLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         holdPiecePanel = new PreviewPanel(PREVIEW_SIZE, BLOCK_SIZE);
-        holdPiecePanel.setPreferredSize(new Dimension(PREVIEW_SIZE * BLOCK_SIZE, PREVIEW_SIZE * BLOCK_SIZE));
-        holdPiecePanel.setBorder(BorderFactory.createLineBorder(Color.GRAY));
+        holdPiecePanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // Score display
-        scoreLabel = new JLabel("Score: 0");
-        scoreLabel.setForeground(Color.WHITE);
-        levelLabel = new JLabel("Level: 1");
-        levelLabel.setForeground(Color.WHITE);
-        linesLabel = new JLabel("Lines: 0");
-        linesLabel.setForeground(Color.WHITE);
+        // Stats panel with gradient background
+        JPanel statsPanel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // Add components to side panel
+                // Create gradient background
+                GradientPaint gradient = new GradientPaint(
+                    0, 0, new Color(0, 0, 0, 100),
+                    getWidth(), getHeight(), new Color(0, 0, 0, 50)
+                );
+                g2d.setPaint(gradient);
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15);
+                g2d.dispose();
+            }
+        };
+        statsPanel.setOpaque(false);
+        statsPanel.setLayout(new BoxLayout(statsPanel, BoxLayout.Y_AXIS));
+        statsPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        statsPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        statsPanel.setMaximumSize(new Dimension(180, 100));
+
+        // Create styled stat labels
+        scoreLabel = UITheme.createStyledLabel("SCORE: 0", UITheme.TEXT_FONT);
+        levelLabel = UITheme.createStyledLabel("LEVEL: 1", UITheme.TEXT_FONT);
+        linesLabel = UITheme.createStyledLabel("LINES: 0", UITheme.TEXT_FONT);
+
+        scoreLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        levelLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        linesLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        statsPanel.add(scoreLabel);
+        statsPanel.add(Box.createVerticalStrut(5));
+        statsPanel.add(levelLabel);
+        statsPanel.add(Box.createVerticalStrut(5));
+        statsPanel.add(linesLabel);
+
+        // Controls panel
+        JPanel controlsPanel = new JPanel();
+        controlsPanel.setOpaque(false);
+        controlsPanel.setLayout(new BoxLayout(controlsPanel, BoxLayout.Y_AXIS));
+        controlsPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        controlsPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JLabel controlsTitle = UITheme.createStyledLabel("CONTROLS", UITheme.SUBTITLE_FONT);
+        controlsTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
+        controlsPanel.add(controlsTitle);
+        controlsPanel.add(Box.createVerticalStrut(10));
+
+        String[] controls = {
+            "← → : Move",
+            "↑ : Rotate",
+            "↓ : Soft Drop",
+            "Space : Hard Drop",
+            "C : Hold Piece",
+            "P : Pause"
+        };
+
+        for (String control : controls) {
+            JLabel controlLabel = UITheme.createStyledLabel(control, UITheme.TEXT_FONT);
+            controlLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            controlsPanel.add(controlLabel);
+            controlsPanel.add(Box.createVerticalStrut(5));
+        }
+
+        // Add components to side panel with spacing
         sidePanel.add(nextPieceLabel);
-        sidePanel.add(Box.createRigidArea(new Dimension(0, 5)));
+        sidePanel.add(Box.createVerticalStrut(5));
         sidePanel.add(nextPiecePanel);
-        sidePanel.add(Box.createRigidArea(new Dimension(0, 20)));
+        sidePanel.add(Box.createVerticalStrut(20));
         sidePanel.add(holdPieceLabel);
-        sidePanel.add(Box.createRigidArea(new Dimension(0, 5)));
+        sidePanel.add(Box.createVerticalStrut(5));
         sidePanel.add(holdPiecePanel);
-        sidePanel.add(Box.createRigidArea(new Dimension(0, 20)));
-        sidePanel.add(scoreLabel);
-        sidePanel.add(Box.createRigidArea(new Dimension(0, 5)));
-        sidePanel.add(levelLabel);
-        sidePanel.add(Box.createRigidArea(new Dimension(0, 5)));
-        sidePanel.add(linesLabel);
-
-        // Add controls info
-        addControlsInfo(sidePanel);
+        sidePanel.add(Box.createVerticalStrut(20));
+        sidePanel.add(statsPanel);
+        sidePanel.add(Box.createVerticalStrut(20));
+        sidePanel.add(controlsPanel);
 
         // Main layout
-        JPanel mainPanel = new JPanel(new BorderLayout());
-        mainPanel.setBackground(new Color(44, 62, 80));
+        JPanel mainPanel = new JPanel(new BorderLayout(20, 0));
+        mainPanel.setBackground(UITheme.BACKGROUND_DARK);
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         mainPanel.add(gameBoard, BorderLayout.CENTER);
         mainPanel.add(sidePanel, BorderLayout.EAST);
 
         add(mainPanel);
-    }
-
-    /**
-     * Adds control instructions to the side panel
-     */
-    private void addControlsInfo(JPanel sidePanel) {
-        String[] controls = {
-                "Controls:",
-                "← → : Move",
-                "↑ : Rotate",
-                "↓ : Soft Drop",
-                "Space : Hard Drop",
-                "C : Hold Piece",
-                "P : Pause"
-        };
-
-        for (String control : controls) {
-            JLabel label = new JLabel(control);
-            label.setForeground(Color.WHITE);
-            sidePanel.add(label);
-            sidePanel.add(Box.createRigidArea(new Dimension(0, 5)));
-        }
     }
 
     /**
@@ -236,6 +267,7 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
                     gameLock.lock();
                     try {
                         gameBoard.rotateCurrentPiece();
+                        soundManager.playRotateSound();
                     } finally {
                         gameLock.unlock();
                     }
@@ -311,7 +343,12 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
             linesCleared += clearedLines;
 
             // Level up every 10 lines
-            level = (linesCleared / 10) + 1;
+            int newLevel = (linesCleared / 10) + 1;
+            if (newLevel > level) {
+                level = newLevel;
+                soundManager.playLevelUpSound();
+                soundManager.updateLevel(level);
+            }
 
             // Update UI
             updateScoreLabels();
@@ -325,9 +362,13 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
      * Updates the score display in the UI
      */
     private void updateScoreLabels() {
-        scoreLabel.setText("Score: " + score);
-        levelLabel.setText("Level: " + level);
-        linesLabel.setText("Lines: " + linesCleared);
+        scoreLabel.setText("SCORE: " + score);
+        levelLabel.setText("LEVEL: " + level);
+        linesLabel.setText("LINES: " + linesCleared);
+
+        // Update label colors based on level
+        Color levelColor = Color.getHSBColor((level * 0.1f) % 1.0f, 0.8f, 1.0f);
+        levelLabel.setForeground(levelColor);
     }
 
     /**
@@ -411,6 +452,7 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
         updateScoreLabels();
         
         // Reset the game board
+        gameBoard.cleanup();
         gameBoard.resetBoard();
         gameBoard.initializeGame();
         
@@ -434,6 +476,7 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
      */
     private void returnToMenu() {
         soundManager.cleanup();
+        gameBoard.cleanup();
         dispose(); // Close the game window
         StartScreen startScreen = new StartScreen();
         startScreen.setVisible(true);

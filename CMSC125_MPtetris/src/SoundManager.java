@@ -1,97 +1,142 @@
 import javax.sound.sampled.*;
 import java.io.IOException;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
 
 public class SoundManager {
     private Clip backgroundMusic;
-    private Clip pieceDropSound;
-    private Clip lineClearSound;
-    private Clip gameOverSound;
+    private Map<String, Clip> soundEffects;
+    private float masterVolume = 1.0f;
     private boolean isMultiplayer;
+    private FloatControl musicVolumeControl;
 
     public SoundManager(boolean isMultiplayer) {
         this.isMultiplayer = isMultiplayer;
+        this.soundEffects = new HashMap<>();
         loadSounds();
     }
 
     private void loadSounds() {
         try {
-
-            URL bgMusicURL = getClass().getResource("/sounds/background.wav");
-            if (bgMusicURL != null) {
-                AudioInputStream bgMusicStream = AudioSystem.getAudioInputStream(bgMusicURL);
+            // Load background music
+            URL musicURL = getClass().getResource("/sounds/music.wav");
+            if (musicURL != null) {
                 backgroundMusic = AudioSystem.getClip();
-                backgroundMusic.open(bgMusicStream);
-            }
-
-            if (!isMultiplayer) {
-                // Piece drop sound
-                URL dropSoundURL = getClass().getResource("/sounds/drop.wav");
-                if (dropSoundURL != null) {
-                    AudioInputStream dropStream = AudioSystem.getAudioInputStream(dropSoundURL);
-                    pieceDropSound = AudioSystem.getClip();
-                    pieceDropSound.open(dropStream);
-                }
-
-                // Line clear sound
-                URL clearSoundURL = getClass().getResource("/sounds/clear.wav");
-                if (clearSoundURL != null) {
-                    AudioInputStream clearStream = AudioSystem.getAudioInputStream(clearSoundURL);
-                    lineClearSound = AudioSystem.getClip();
-                    lineClearSound.open(clearStream);
-                }
-
-                // Game over sound
-                URL gameOverURL = getClass().getResource("/sounds/gameover.wav");
-                if (gameOverURL != null) {
-                    AudioInputStream gameOverStream = AudioSystem.getAudioInputStream(gameOverURL);
-                    gameOverSound = AudioSystem.getClip();
-                    gameOverSound.open(gameOverStream);
+                AudioInputStream stream = AudioSystem.getAudioInputStream(musicURL);
+                backgroundMusic.open(stream);
+                
+                // Get volume control
+                if (backgroundMusic.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
+                    musicVolumeControl = (FloatControl) backgroundMusic.getControl(FloatControl.Type.MASTER_GAIN);
                 }
             }
-        } catch (UnsupportedAudioFileException | IOException | LineUnavailableException e) {
+
+            // Load sound effects with variations
+            loadSoundEffect("drop", 3);   // 3 variations for piece drops
+            loadSoundEffect("rotate", 2);  // 2 variations for rotation
+            loadSoundEffect("clear", 4);   // 4 variations for line clears
+            loadSoundEffect("levelup", 1); // 1 level up sound
+            loadSoundEffect("gameover", 1); // 1 game over sound
+
+        } catch (Exception e) {
             System.err.println("Error loading sounds: " + e.getMessage());
+        }
+    }
+
+    private void loadSoundEffect(String name, int variations) {
+        try {
+            for (int i = 1; i <= variations; i++) {
+                URL effectURL = getClass().getResource("/sounds/" + name + i + ".wav");
+                if (effectURL != null) {
+                    Clip clip = AudioSystem.getClip();
+                    AudioInputStream stream = AudioSystem.getAudioInputStream(effectURL);
+                    clip.open(stream);
+                    soundEffects.put(name + i, clip);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error loading sound effect " + name + ": " + e.getMessage());
         }
     }
 
     public void playBackgroundMusic() {
         if (backgroundMusic != null) {
+            backgroundMusic.setFramePosition(0);
             backgroundMusic.loop(Clip.LOOP_CONTINUOUSLY);
+            updateMusicVolume();
         }
     }
 
     public void stopBackgroundMusic() {
-        if (backgroundMusic != null && backgroundMusic.isRunning()) {
+        if (backgroundMusic != null) {
             backgroundMusic.stop();
-            backgroundMusic.setFramePosition(0);
+        }
+    }
+
+    public void updateLevel(int level) {
+        // Increase music volume slightly with level
+        if (musicVolumeControl != null) {
+            float volumeIncrease = Math.min((level - 1) * 0.1f, 0.5f); // Max 50% increase
+            setMusicVolume(masterVolume + volumeIncrease);
+        }
+    }
+
+    private void updateMusicVolume() {
+        if (musicVolumeControl != null) {
+            setMusicVolume(masterVolume);
+        }
+    }
+
+    private void setMusicVolume(float volume) {
+        if (musicVolumeControl != null) {
+            float min = musicVolumeControl.getMinimum();
+            float max = musicVolumeControl.getMaximum();
+            float range = max - min;
+            float adjustedVolume = min + (range * volume);
+            musicVolumeControl.setValue(adjustedVolume);
         }
     }
 
     public void playPieceDropSound() {
-        if (!isMultiplayer && pieceDropSound != null) {
-            pieceDropSound.setFramePosition(0);
-            pieceDropSound.start();
-        }
+        playRandomVariation("drop", 3);
+    }
+
+    public void playRotateSound() {
+        playRandomVariation("rotate", 2);
     }
 
     public void playLineClearSound() {
-        if (!isMultiplayer && lineClearSound != null) {
-            lineClearSound.setFramePosition(0);
-            lineClearSound.start();
-        }
+        playRandomVariation("clear", 4);
+    }
+
+    public void playLevelUpSound() {
+        playSound("levelup1");
     }
 
     public void playGameOverSound() {
-        if (!isMultiplayer && gameOverSound != null) {
-            gameOverSound.setFramePosition(0);
-            gameOverSound.start();
+        playSound("gameover1");
+    }
+
+    private void playRandomVariation(String baseName, int variations) {
+        int variation = (int)(Math.random() * variations) + 1;
+        playSound(baseName + variation);
+    }
+
+    private void playSound(String name) {
+        Clip clip = soundEffects.get(name);
+        if (clip != null) {
+            clip.setFramePosition(0);
+            clip.start();
         }
     }
 
     public void cleanup() {
-        if (backgroundMusic != null) backgroundMusic.close();
-        if (pieceDropSound != null) pieceDropSound.close();
-        if (lineClearSound != null) lineClearSound.close();
-        if (gameOverSound != null) gameOverSound.close();
+        if (backgroundMusic != null) {
+            backgroundMusic.close();
+        }
+        for (Clip clip : soundEffects.values()) {
+            if (clip != null) clip.close();
+        }
     }
 } 

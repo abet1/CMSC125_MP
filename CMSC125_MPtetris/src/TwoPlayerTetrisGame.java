@@ -32,6 +32,7 @@ public class TwoPlayerTetrisGame extends JFrame implements TetrisGameInterface {
     private final AtomicBoolean isPaused = new AtomicBoolean(false);
     private final AtomicBoolean isGameOver = new AtomicBoolean(false);
     private final ReentrantLock gameLock = new ReentrantLock();
+    private SoundManager soundManager;
 
     public TwoPlayerTetrisGame() {
         setTitle("Two Player Tetris");
@@ -39,6 +40,9 @@ public class TwoPlayerTetrisGame extends JFrame implements TetrisGameInterface {
         setSize(WINDOW_WIDTH, WINDOW_HEIGHT);
         setLocationRelativeTo(null);
         setResizable(false);
+
+        // Initialize sound manager for multiplayer
+        soundManager = new SoundManager(true);
 
         setupGameComponents();
         setupKeyBindings();
@@ -330,9 +334,11 @@ public class TwoPlayerTetrisGame extends JFrame implements TetrisGameInterface {
         if (isPaused.get()) {
             player1Board.showPauseMessage();
             player2Board.showPauseMessage();
+            soundManager.stopBackgroundMusic();
         } else {
             player1Board.clearMessage();
             player2Board.clearMessage();
+            soundManager.playBackgroundMusic();
         }
     }
 
@@ -344,34 +350,60 @@ public class TwoPlayerTetrisGame extends JFrame implements TetrisGameInterface {
         player2Thread = new GameThread(player2Board, "Player2");
         player1Thread.start();
         player2Thread.start();
+        
+        soundManager.playBackgroundMusic();
     }
 
     private void restartGame() {
-        isGameOver.set(false);
-        isPaused.set(false);
-        
-        player1Board.resetBoard();
-        player2Board.resetBoard();
-        player1Board.initializeGame();
-        player2Board.initializeGame();
-        
-        player1Board.clearMessage();
-        player2Board.clearMessage();
-        
+        // Stop existing threads first
         if (player1Thread != null && player1Thread.isAlive()) {
             player1Thread.interrupt();
         }
         if (player2Thread != null && player2Thread.isAlive()) {
             player2Thread.interrupt();
         }
+
+        // Reset game state
+        isGameOver.set(false);
+        isPaused.set(false);
         
+        // Reset scores and labels
+        player1ScoreLabel.setText("Score: 0");
+        player2ScoreLabel.setText("Score: 0");
+        player1LevelLabel.setText("Level: 1");
+        player2LevelLabel.setText("Level: 1");
+        player1LinesLabel.setText("Lines: 0");
+        player2LinesLabel.setText("Lines: 0");
+        
+        // Reset boards
+        player1Board.cleanup();
+        player2Board.cleanup();
+        player1Board.resetBoard();
+        player2Board.resetBoard();
+        
+        // Clear messages
+        player1Board.clearMessage();
+        player2Board.clearMessage();
+        
+        // Initialize and start new game threads
         player1Thread = new GameThread(player1Board, "Player1");
         player2Thread = new GameThread(player2Board, "Player2");
+        
+        // Start the game
+        player1Board.initializeGame();
+        player2Board.initializeGame();
         player1Thread.start();
         player2Thread.start();
+        
+        // Restart background music
+        soundManager.stopBackgroundMusic();
+        soundManager.playBackgroundMusic();
     }
 
     private void returnToMenu() {
+        soundManager.cleanup();
+        player1Board.cleanup();
+        player2Board.cleanup();
         dispose();
         GameModeScreen screen = new GameModeScreen();
         screen.setVisible(true);
@@ -380,17 +412,19 @@ public class TwoPlayerTetrisGame extends JFrame implements TetrisGameInterface {
     private class GameThread extends Thread {
         private final GameBoard board;
         private static final long FRAME_DELAY = 1000; // 1 second per frame
+        private final String playerName;
 
         public GameThread(GameBoard board, String playerName) {
             super("GameThread-" + playerName);
             this.board = board;
+            this.playerName = playerName;
         }
 
         @Override
         public void run() {
-            while (!isInterrupted()) {
+            while (!isInterrupted() && !isGameOver.get()) {
                 try {
-                    if (!isPaused.get() && !isGameOver.get()) {
+                    if (!isPaused.get()) {
                         gameLock.lock();
                         try {
                             if (!board.moveCurrentPieceDown()) {
@@ -429,11 +463,27 @@ public class TwoPlayerTetrisGame extends JFrame implements TetrisGameInterface {
 
     @Override
     public void gameOver() {
+        if (isGameOver.get()) {
+            return; // Prevent multiple game over calls
+        }
+        
         isGameOver.set(true);
+        
+        // Stop background music and play game over sound
+        soundManager.stopBackgroundMusic();
+        soundManager.playGameOverSound();
         
         // Get the current thread that called gameOver
         Thread currentThread = Thread.currentThread();
         String threadName = currentThread.getName();
+        
+        // Stop both game threads
+        if (player1Thread != null) {
+            player1Thread.interrupt();
+        }
+        if (player2Thread != null) {
+            player2Thread.interrupt();
+        }
         
         // Determine which board triggered game over
         if (threadName.contains("Player1")) {
@@ -448,6 +498,8 @@ public class TwoPlayerTetrisGame extends JFrame implements TetrisGameInterface {
             player2Board.showGameOverMessage("YOU LOSE\nR = Restart\nM = Menu");
         } else {
             System.out.println("Game Over: Unknown thread triggered game over! Thread name: " + threadName);
+            player1Board.showGameOverMessage("GAME OVER\nR = Restart\nM = Menu");
+            player2Board.showGameOverMessage("GAME OVER\nR = Restart\nM = Menu");
         }
     }
 
@@ -468,13 +520,19 @@ public class TwoPlayerTetrisGame extends JFrame implements TetrisGameInterface {
 
     @Override
     public void updateScore(int linesCleared) {
-
         if (linesCleared > 0) {
+            // Play line clear sound
+            soundManager.playLineClearSound();
+            
             if (linesCleared == player1Board.getLastLinesCleared()) {
                 player1ScoreLabel.setText("Score: " + (Integer.parseInt(player1ScoreLabel.getText().split(": ")[1]) + linesCleared * 100));
             } else {
                 player2ScoreLabel.setText("Score: " + (Integer.parseInt(player2ScoreLabel.getText().split(": ")[1]) + linesCleared * 100));
             }
         }
+    }
+
+    public void playPieceDropSound() {
+        soundManager.playPieceDropSound();
     }
 } 
