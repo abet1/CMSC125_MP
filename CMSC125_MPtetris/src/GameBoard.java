@@ -1,5 +1,6 @@
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.Random;
 
@@ -22,10 +23,15 @@ public class GameBoard extends JPanel {
     private int currentX;
     private int currentY;
     private final Random random = new Random();
-    private final TetrisGame gameInstance;
+    private final TetrisGameInterface gameInstance;
 
     // Messages
     private String message = null;
+
+    private int lastLinesCleared = 0;
+
+    private CosmicEffects cosmicEffects;
+    private Timer effectsTimer;
 
     /**
      * Constructor for the game board
@@ -34,7 +40,7 @@ public class GameBoard extends JPanel {
      * @param height Height of the board in blocks
      * @param blockSize Size of each block in pixels
      */
-    public GameBoard(TetrisGame game, int width, int height, int blockSize) {
+    public GameBoard(TetrisGameInterface game, int width, int height, int blockSize) {
         this.gameInstance = game;
         this.BOARD_WIDTH = width;
         this.BOARD_HEIGHT = height;
@@ -43,6 +49,16 @@ public class GameBoard extends JPanel {
         // Initialize the game board
         board = new int[BOARD_HEIGHT][BOARD_WIDTH];
         setBackground(Color.BLACK);
+
+        // Initialize cosmic effects
+        cosmicEffects = new CosmicEffects(width * blockSize, height * blockSize);
+        
+        // Start effects timer
+        effectsTimer = new Timer(16, e -> {
+            cosmicEffects.update();
+            repaint();
+        });
+        effectsTimer.start();
     }
 
     /**
@@ -162,11 +178,17 @@ public class GameBoard extends JPanel {
      * @return true if piece was rotated, false otherwise
      */
     public boolean rotateCurrentPiece() {
-        Tetromino rotated = currentPiece.getRotated();
+        if (currentPiece == null || gameInstance.isGameOver()) return false;
 
-        // Try standard rotation
+        Tetromino rotated = currentPiece.getRotated();
         if (isValidPosition(currentX, currentY, rotated)) {
             currentPiece = rotated;
+            
+            // Trigger rotation effect
+            int centerX = (currentX + currentPiece.getShape()[0].length/2) * BLOCK_SIZE;
+            int centerY = (currentY + currentPiece.getShape().length/2) * BLOCK_SIZE;
+            cosmicEffects.addRotationEffect(centerX, centerY);
+
             repaint();
             return true;
         }
@@ -224,38 +246,60 @@ public class GameBoard extends JPanel {
      * Places the current piece on the board and creates a new piece
      */
     public void placePiece() {
-        // Add the current piece to the board
+        if (currentPiece == null) return;
+
         int[][] shape = currentPiece.getShape();
         int color = currentPiece.getColor();
 
+        // Place the piece on the board
         for (int i = 0; i < shape.length; i++) {
             for (int j = 0; j < shape[i].length; j++) {
                 if (shape[i][j] == 1) {
-                    int y = currentY + i;
-                    int x = currentX + j;
-
-                    if (y >= 0 && y < BOARD_HEIGHT && x >= 0 && x < BOARD_WIDTH) {
-                        board[y][x] = color;
-                    }
+                    board[currentY + i][currentX + j] = color;
                 }
             }
         }
 
+        // Trigger drop effect at the piece's position
+        int centerX = (currentX + shape[0].length/2) * BLOCK_SIZE;
+        int centerY = (currentY + shape.length/2) * BLOCK_SIZE;
+        cosmicEffects.addPieceDropEffect(centerX, centerY);
+
         // Check for completed lines
         int linesCleared = clearLines();
-        gameInstance.updateScore(linesCleared);
+        if (linesCleared > 0) {
+            // Trigger line clear effects
+            for (int i = currentY; i < currentY + shape.length; i++) {
+                cosmicEffects.addLineClearEffect(i * BLOCK_SIZE);
+            }
+            gameInstance.updateScore(linesCleared);
+        }
 
-        // Reset hold flag
+        // Get next piece
+        currentPiece = nextPiece;
+        nextPiece = Tetromino.getRandomPiece(random);
+        gameInstance.updateNextPiecePanel(nextPiece);
+
+        // Reset position
+        currentX = BOARD_WIDTH / 2 - currentPiece.getShape()[0].length / 2;
+        currentY = 0;
+
+        // Reset hold ability
         canHold = true;
 
-        // Create a new piece
-        createNewPiece();
+        // Check if game is over
+        if (!isValidPosition(currentX, currentY, currentPiece)) {
+            gameInstance.gameOver();
+        }
+
+        // Play sound effect
+        if (gameInstance instanceof TetrisGame) {
+            ((TetrisGame) gameInstance).playPieceDropSound();
+        } else if (gameInstance instanceof TwoPlayerTetrisGame) {
+            ((TwoPlayerTetrisGame) gameInstance).playPieceDropSound();
+        }
     }
 
-    /**
-     * Clears completed lines and moves lines above down
-     * @return Number of lines cleared
-     */
     private int clearLines() {
         int linesCleared = 0;
 
@@ -290,6 +334,7 @@ public class GameBoard extends JPanel {
             }
         }
 
+        this.lastLinesCleared = linesCleared;
         return linesCleared;
     }
 
@@ -329,16 +374,21 @@ public class GameBoard extends JPanel {
      * Shows a pause message on the board
      */
     public void showPauseMessage() {
-        message = "PAUSED";
+        message = "PAUSED\nM = Menu";
         repaint();
     }
 
     /**
      * Shows a game over message on the board
      */
-    public void showGameOverMessage() {
-        message = "GAME OVER";
+    public void showGameOverMessage(String message) {
+        this.message = message;
         repaint();
+    }
+
+    // Keep the original method for backward compatibility
+    public void showGameOverMessage() {
+        showGameOverMessage("GAME OVER\nR = Restart\nM = Menu");
     }
 
     /**
@@ -349,30 +399,26 @@ public class GameBoard extends JPanel {
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
 
-        // Draw background
-        g2d.setColor(Color.BLACK);
-        g2d.fillRect(0, 0, getWidth(), getHeight());
+        // Draw cosmic effects
+        cosmicEffects.draw(g2d);
 
-        // Draw grid
-        g2d.setColor(Color.DARK_GRAY);
-        for (int i = 0; i <= BOARD_HEIGHT; i++) {
-            g2d.drawLine(0, i * BLOCK_SIZE, BOARD_WIDTH * BLOCK_SIZE, i * BLOCK_SIZE);
-        }
+        // Draw semi-transparent game area
+        g2d.setColor(new Color(0, 0, 0, 180));
+        g2d.fillRect(0, 0, BOARD_WIDTH * BLOCK_SIZE, BOARD_HEIGHT * BLOCK_SIZE);
 
-        for (int i = 0; i <= BOARD_WIDTH; i++) {
-            g2d.drawLine(i * BLOCK_SIZE, 0, i * BLOCK_SIZE, BOARD_HEIGHT * BLOCK_SIZE);
-        }
+        // Draw grid with glow effect
+        drawGrid(g2d);
 
-        // Draw placed blocks
+        // Draw placed blocks with glow effect
         for (int i = 0; i < BOARD_HEIGHT; i++) {
             for (int j = 0; j < BOARD_WIDTH; j++) {
                 if (board[i][j] != 0) {
-                    drawBlock(g2d, j * BLOCK_SIZE, i * BLOCK_SIZE, board[i][j]);
+                    drawGlowingBlock(g2d, j * BLOCK_SIZE, i * BLOCK_SIZE, board[i][j]);
                 }
             }
         }
 
-        // Draw current piece
+        // Draw current piece with glow effect
         if (currentPiece != null && !gameInstance.isGameOver()) {
             int[][] shape = currentPiece.getShape();
             int color = currentPiece.getColor();
@@ -382,96 +428,181 @@ public class GameBoard extends JPanel {
                     if (shape[i][j] == 1) {
                         int x = (currentX + j) * BLOCK_SIZE;
                         int y = (currentY + i) * BLOCK_SIZE;
-                        drawBlock(g2d, x, y, color);
+                        drawGlowingBlock(g2d, x, y, color);
                     }
                 }
             }
         }
 
-        // Draw ghost piece (shows where the piece will land)
+        // Draw ghost piece with ethereal effect
         if (currentPiece != null && !gameInstance.isGameOver() && !gameInstance.isPaused()) {
-            int dropDistance = 0;
-            while (isValidPosition(currentX, currentY + dropDistance + 1, currentPiece)) {
-                dropDistance++;
-            }
-
-            int[][] shape = currentPiece.getShape();
-            for (int i = 0; i < shape.length; i++) {
-                for (int j = 0; j < shape[i].length; j++) {
-                    if (shape[i][j] == 1) {
-                        int x = (currentX + j) * BLOCK_SIZE;
-                        int y = (currentY + dropDistance + i) * BLOCK_SIZE;
-                        drawGhostBlock(g2d, x, y);
-                    }
-                }
-            }
+            drawGhostPiece(g2d);
         }
 
         // Draw message if needed
         if (message != null) {
-            g2d.setColor(new Color(0, 0, 0, 150));
-            g2d.fillRect(0, 0, getWidth(), getHeight());
+            drawMessage(g2d);
+        }
+    }
 
-            g2d.setColor(Color.WHITE);
-            g2d.setFont(new Font("Arial", Font.BOLD, 30));
-            FontMetrics fm = g2d.getFontMetrics();
-            int messageWidth = fm.stringWidth(message);
+    private void drawGrid(Graphics2D g2d) {
+        // Calculate dynamic grid opacity based on game state
+        float baseOpacity = 0.12f;
+        float pulseOpacity = (float)Math.sin(System.currentTimeMillis() / 1000.0) * 0.05f;
+        int opacity = (int)((baseOpacity + pulseOpacity) * 255);
 
-            g2d.drawString(message, (getWidth() - messageWidth) / 2, getHeight() / 2);
+        g2d.setColor(new Color(255, 255, 255, opacity));
+        
+        // Draw horizontal lines
+        for (int i = 0; i <= BOARD_HEIGHT; i++) {
+            int y = i * BLOCK_SIZE;
+            float lineOpacity = baseOpacity + (float)Math.sin(y / 50.0 + System.currentTimeMillis() / 1000.0) * 0.05f;
+            g2d.setColor(new Color(255, 255, 255, (int)(lineOpacity * 255)));
+            g2d.drawLine(0, y, BOARD_WIDTH * BLOCK_SIZE, y);
+        }
 
-            // If the game is paused, this message will clear when unpaused
-            if (message.equals("PAUSED") && !gameInstance.isPaused()) {
-                message = null;
+        // Draw vertical lines
+        for (int i = 0; i <= BOARD_WIDTH; i++) {
+            int x = i * BLOCK_SIZE;
+            float lineOpacity = baseOpacity + (float)Math.sin(x / 50.0 + System.currentTimeMillis() / 1000.0) * 0.05f;
+            g2d.setColor(new Color(255, 255, 255, (int)(lineOpacity * 255)));
+            g2d.drawLine(x, 0, x, BOARD_HEIGHT * BLOCK_SIZE);
+        }
+    }
+
+    private void drawGlowingBlock(Graphics2D g2d, int x, int y, int colorIndex) {
+        Color[] colors = {
+            Color.BLACK,      // 0 - Empty
+            new Color(0, 255, 255),  // 1 - I piece (Cyan)
+            new Color(0, 0, 255),    // 2 - J piece (Blue)
+            new Color(255, 165, 0),  // 3 - L piece (Orange)
+            new Color(255, 255, 0),  // 4 - O piece (Yellow)
+            new Color(0, 255, 0),    // 5 - S piece (Green)
+            new Color(255, 0, 255),  // 6 - T piece (Magenta)
+            new Color(255, 0, 0)     // 7 - Z piece (Red)
+        };
+
+        Color baseColor = colors[colorIndex];
+        
+        // Enable antialiasing
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // Calculate dynamic glow based on game state
+        float glowIntensity = 1.0f;
+        if (currentPiece != null && colorIndex == currentPiece.getColor()) {
+            // Make active piece glow more intensely
+            glowIntensity = 1.5f + (float)Math.sin(System.currentTimeMillis() / 200.0) * 0.5f;
+        }
+
+        // Draw outer glow with dynamic intensity
+        for (int i = 3; i > 0; i--) {
+            g2d.setColor(new Color(
+                baseColor.getRed(),
+                baseColor.getGreen(),
+                baseColor.getBlue(),
+                (int)(50 * glowIntensity / i)
+            ));
+            g2d.fillRoundRect(
+                x - i * 2,
+                y - i * 2,
+                BLOCK_SIZE + i * 4,
+                BLOCK_SIZE + i * 4,
+                8,
+                8
+            );
+        }
+
+        // Draw main block with inner gradient
+        GradientPaint gradient = new GradientPaint(
+            x, y,
+            baseColor,
+            x + BLOCK_SIZE, y + BLOCK_SIZE,
+            new Color(
+                Math.max(0, baseColor.getRed() - 50),
+                Math.max(0, baseColor.getGreen() - 50),
+                Math.max(0, baseColor.getBlue() - 50)
+            )
+        );
+        g2d.setPaint(gradient);
+        g2d.fillRoundRect(x + 1, y + 1, BLOCK_SIZE - 2, BLOCK_SIZE - 2, 4, 4);
+
+        // Draw highlight with dynamic opacity
+        float highlightOpacity = 0.4f + (float)Math.sin(System.currentTimeMillis() / 300.0) * 0.2f;
+        g2d.setColor(new Color(255, 255, 255, (int)(highlightOpacity * 255)));
+        g2d.fillRoundRect(x + 3, y + 3, BLOCK_SIZE - 12, BLOCK_SIZE - 12, 2, 2);
+    }
+
+    private void drawGhostPiece(Graphics2D g2d) {
+        int dropDistance = 0;
+        while (isValidPosition(currentX, currentY + dropDistance + 1, currentPiece)) {
+            dropDistance++;
+        }
+
+        int[][] shape = currentPiece.getShape();
+        float ghostOpacity = 0.3f + (float)Math.sin(System.currentTimeMillis() / 400.0) * 0.1f;
+        Color ghostColor = new Color(255, 255, 255, (int)(ghostOpacity * 255));
+
+        for (int i = 0; i < shape.length; i++) {
+            for (int j = 0; j < shape[i].length; j++) {
+                if (shape[i][j] == 1) {
+                    int x = (currentX + j) * BLOCK_SIZE;
+                    int y = (currentY + dropDistance + i) * BLOCK_SIZE;
+                    
+                    // Draw ethereal ghost block
+                    g2d.setColor(ghostColor);
+                    g2d.setStroke(new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    
+                    // Draw multiple layers for ethereal effect
+                    for (int layer = 3; layer > 0; layer--) {
+                        float layerOpacity = ghostOpacity / layer;
+                        g2d.setColor(new Color(255, 255, 255, (int)(layerOpacity * 255)));
+                        g2d.drawRoundRect(
+                            x + layer,
+                            y + layer,
+                            BLOCK_SIZE - layer * 2,
+                            BLOCK_SIZE - layer * 2,
+                            4,
+                            4
+                        );
+                    }
+                }
             }
         }
     }
 
-    /**
-     * Draws a single block at the specified position
-     * @param g2d Graphics context
-     * @param x X position in pixels
-     * @param y Y position in pixels
-     * @param colorIndex Color index of the block
-     */
-    private void drawBlock(Graphics2D g2d, int x, int y, int colorIndex) {
-        Color[] colors = {
-                Color.BLACK,      // 0 - Empty
-                Color.CYAN,       // 1 - I piece
-                Color.BLUE,       // 2 - J piece
-                Color.ORANGE,     // 3 - L piece
-                Color.YELLOW,     // 4 - O piece
-                Color.GREEN,      // 5 - S piece
-                Color.MAGENTA,    // 6 - T piece
-                Color.RED         // 7 - Z piece
-        };
+    private void drawMessage(Graphics2D g2d) {
+        // Create semi-transparent overlay
+        g2d.setColor(new Color(0, 0, 0, 200));
+        g2d.fillRect(0, 0, getWidth(), getHeight());
 
-        Color color = colors[colorIndex];
-
-        // Fill block
-        g2d.setColor(color);
-        g2d.fillRect(x + 1, y + 1, BLOCK_SIZE - 2, BLOCK_SIZE - 2);
-
-        // Highlight
-        g2d.setColor(color.brighter());
-        g2d.drawLine(x + 1, y + 1, x + 1, y + BLOCK_SIZE - 2);
-        g2d.drawLine(x + 1, y + 1, x + BLOCK_SIZE - 2, y + 1);
-
-        // Shadow
-        g2d.setColor(color.darker());
-        g2d.drawLine(x + BLOCK_SIZE - 2, y + 1, x + BLOCK_SIZE - 2, y + BLOCK_SIZE - 2);
-        g2d.drawLine(x + 1, y + BLOCK_SIZE - 2, x + BLOCK_SIZE - 2, y + BLOCK_SIZE - 2);
-    }
-
-    /**
-     * Draws a ghost block showing where the piece will land
-     * @param g2d Graphics context
-     * @param x X position in pixels
-     * @param y Y position in pixels
-     */
-    private void drawGhostBlock(Graphics2D g2d, int x, int y) {
-        // Draw ghost block outline
-        g2d.setColor(Color.LIGHT_GRAY);
-        g2d.drawRect(x + 1, y + 1, BLOCK_SIZE - 2, BLOCK_SIZE - 2);
+        // Draw glowing text
+        g2d.setFont(new Font("Arial", Font.BOLD, 30));
+        FontMetrics fm = g2d.getFontMetrics();
+        
+        String[] lines = message.split("\n");
+        int lineHeight = fm.getHeight();
+        int totalHeight = lineHeight * lines.length;
+        int startY = (getHeight() - totalHeight) / 2;
+        
+        for (int i = 0; i < lines.length; i++) {
+            // Draw text glow
+            g2d.setColor(new Color(0, 255, 255, 50));
+            for (int j = 3; j > 0; j--) {
+                int messageWidth = fm.stringWidth(lines[i]);
+                g2d.drawString(lines[i],
+                    (getWidth() - messageWidth) / 2 + j,
+                    startY + (i * lineHeight) + j
+                );
+            }
+            
+            // Draw main text
+            g2d.setColor(Color.WHITE);
+            int messageWidth = fm.stringWidth(lines[i]);
+            g2d.drawString(lines[i],
+                (getWidth() - messageWidth) / 2,
+                startY + (i * lineHeight)
+            );
+        }
     }
 
     /**
@@ -543,6 +674,17 @@ public class GameBoard extends JPanel {
         nextPiece = Tetromino.getRandomPiece(random);
         createNewPiece();
 
+        // Reinitialize cosmic effects
+        if (effectsTimer != null) {
+            effectsTimer.stop();
+        }
+        cosmicEffects = new CosmicEffects(BOARD_WIDTH * BLOCK_SIZE, BOARD_HEIGHT * BLOCK_SIZE);
+        effectsTimer = new Timer(16, e -> {
+            cosmicEffects.update();
+            repaint();
+        });
+        effectsTimer.start();
+
         repaint();
     }
 
@@ -553,5 +695,23 @@ public class GameBoard extends JPanel {
     @Override
     public Dimension getPreferredSize() {
         return new Dimension(BOARD_WIDTH * BLOCK_SIZE, BOARD_HEIGHT * BLOCK_SIZE);
+    }
+
+    public Tetromino getNextPiece() {
+        return nextPiece;
+    }
+
+    public Tetromino getHoldPiece() {
+        return holdPiece;
+    }
+
+    public int getLastLinesCleared() {
+        return lastLinesCleared;
+    }
+
+    public void cleanup() {
+        if (effectsTimer != null) {
+            effectsTimer.stop();
+        }
     }
 }
