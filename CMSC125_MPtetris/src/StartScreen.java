@@ -18,6 +18,7 @@ public class StartScreen extends JFrame {
     private float fadeInAlpha = 0f;
     private float promptAnim = 0f;
     private boolean promptIncreasing = true;
+    private SoundManager soundManager;
 
     /**
      * Constructor sets up the start screen window and its components
@@ -28,6 +29,10 @@ public class StartScreen extends JFrame {
         setSize(WINDOW_WIDTH, WINDOW_HEIGHT);
         setLocationRelativeTo(null);
         setResizable(false);
+
+        // Initialize sound manager
+        soundManager = new SoundManager(false);
+        soundManager.playMenuMusic();
 
         // Initialize cosmic effects
         cosmicEffects = new CosmicEffects(WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -223,10 +228,10 @@ public class StartScreen extends JFrame {
 
     private void updateTitleGlow() {
         if (glowIncreasing) {
-            titleGlow += 0.05f;
+            titleGlow += 0.03f;
             if (titleGlow >= Math.PI) glowIncreasing = false;
         } else {
-            titleGlow -= 0.05f;
+            titleGlow -= 0.03f;
             if (titleGlow <= 0) glowIncreasing = true;
         }
     }
@@ -284,7 +289,17 @@ public class StartScreen extends JFrame {
     private void cleanup() {
         if (effectsTimer != null) {
             effectsTimer.stop();
+            effectsTimer = null;
         }
+        if (cosmicEffects != null) {
+            cosmicEffects.cleanup();
+            cosmicEffects = null;
+        }
+        if (soundManager != null) {
+            soundManager.stopMenuMusic();
+            soundManager.cleanup();
+        }
+        System.gc();
     }
 
     /**
@@ -295,5 +310,11 @@ public class StartScreen extends JFrame {
             StartScreen startScreen = new StartScreen();
             startScreen.setVisible(true);
         });
+    }
+
+    @Override
+    public void dispose() {
+        cleanup();
+        super.dispose();
     }
 } 

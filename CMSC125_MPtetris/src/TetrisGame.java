@@ -475,11 +475,13 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
      * Returns to the start menu
      */
     private void returnToMenu() {
+        if (gameThread != null) {
+            gameThread.interrupt();
+        }
         soundManager.cleanup();
         gameBoard.cleanup();
-        dispose(); // Close the game window
-        StartScreen startScreen = new StartScreen();
-        startScreen.setVisible(true);
+        new StartScreen().setVisible(true);
+        dispose();
     }
 
     /**

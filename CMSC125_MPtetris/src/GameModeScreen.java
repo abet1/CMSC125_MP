@@ -12,6 +12,8 @@ public class GameModeScreen extends JFrame {
     private Timer effectsTimer;
     private float selectionGlow = 0;
     private boolean glowIncreasing = true;
+    private boolean isTransitioning = false;
+    private SoundManager soundManager;
 
     public GameModeScreen() {
         setTitle("Tetris Effect - Select Mode");
@@ -19,6 +21,10 @@ public class GameModeScreen extends JFrame {
         setSize(WINDOW_WIDTH, WINDOW_HEIGHT);
         setLocationRelativeTo(null);
         setResizable(false);
+
+        // Initialize sound manager
+        soundManager = new SoundManager(false);
+        soundManager.playMenuMusic();
 
         // Initialize cosmic effects
         cosmicEffects = new CosmicEffects(WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -180,10 +186,10 @@ public class GameModeScreen extends JFrame {
 
     private void updateSelectionGlow() {
         if (glowIncreasing) {
-            selectionGlow += 0.05f;
+            selectionGlow += 0.03f;
             if (selectionGlow >= Math.PI) glowIncreasing = false;
         } else {
-            selectionGlow -= 0.05f;
+            selectionGlow -= 0.03f;
             if (selectionGlow <= 0) glowIncreasing = true;
         }
     }
@@ -222,32 +228,59 @@ public class GameModeScreen extends JFrame {
     }
 
     private void startSinglePlayer() {
+        if (isTransitioning) return;
+        isTransitioning = true;
         cleanup();
-        TetrisGame game = new TetrisGame();
-        game.setVisible(true);
-        game.startGame();
         dispose();
+        SwingUtilities.invokeLater(() -> {
+            TetrisGame game = new TetrisGame();
+            game.setVisible(true);
+            game.startGame();
+        });
     }
 
     private void startTwoPlayer() {
+        if (isTransitioning) return;
+        isTransitioning = true;
         cleanup();
-        TwoPlayerTetrisGame game = new TwoPlayerTetrisGame();
-        game.setVisible(true);
-        game.startGame();
         dispose();
+        SwingUtilities.invokeLater(() -> {
+            TwoPlayerTetrisGame game = new TwoPlayerTetrisGame();
+            game.setVisible(true);
+            game.startGame();
+        });
     }
 
     private void returnToMenu() {
+        if (isTransitioning) return;
+        isTransitioning = true;
         cleanup();
-        StartScreen startScreen = new StartScreen();
-        startScreen.setVisible(true);
         dispose();
+        SwingUtilities.invokeLater(() -> {
+            new StartScreen().setVisible(true);
+        });
     }
 
     private void cleanup() {
         if (effectsTimer != null) {
             effectsTimer.stop();
+            effectsTimer = null;
         }
+        if (cosmicEffects != null) {
+            cosmicEffects.cleanup();
+            cosmicEffects = null;
+        }
+        if (soundManager != null) {
+            soundManager.stopMenuMusic();
+            soundManager.cleanup();
+        }
+        System.gc();
+    }
+
+    @Override
+    public void dispose() {
+        cleanup();
+        super.dispose();
     }
 
     public static void main(String[] args) {

@@ -1,7 +1,5 @@
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionListener;
-import java.util.ArrayList;
 import java.util.Random;
 
 /**
@@ -54,7 +52,7 @@ public class GameBoard extends JPanel {
         cosmicEffects = new CosmicEffects(width * blockSize, height * blockSize);
         
         // Start effects timer
-        effectsTimer = new Timer(16, e -> {
+        effectsTimer = new Timer(16, _ -> {
             cosmicEffects.update();
             repaint();
         });
@@ -701,7 +699,7 @@ public class GameBoard extends JPanel {
             effectsTimer.stop();
         }
         cosmicEffects = new CosmicEffects(BOARD_WIDTH * BLOCK_SIZE, BOARD_HEIGHT * BLOCK_SIZE);
-        effectsTimer = new Timer(16, e -> {
+        effectsTimer = new Timer(16, _ -> {
             cosmicEffects.update();
             repaint();
         });
@@ -734,6 +732,11 @@ public class GameBoard extends JPanel {
     public void cleanup() {
         if (effectsTimer != null) {
             effectsTimer.stop();
+            effectsTimer = null;
+        }
+        if (cosmicEffects != null) {
+            cosmicEffects.cleanup();
+            cosmicEffects = null;
         }
     }
 }
