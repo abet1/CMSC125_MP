@@ -483,24 +483,32 @@ public class GameBoard extends JPanel {
         };
 
         Color baseColor = colors[colorIndex];
-        
-        // Enable antialiasing
+   
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // Calculate dynamic glow based on game state
-        float glowIntensity = 1.0f;
-        if (currentPiece != null && colorIndex == currentPiece.getColor()) {
-            // Make active piece glow more intensely
-            glowIntensity = 1.5f + (float)Math.sin(System.currentTimeMillis() / 200.0) * 0.5f;
+ 
+        float animT = (float)((Math.sin(System.currentTimeMillis() / 400.0) + 1) / 2.0);
+        Color borderColor = baseColor;
+        boolean isActive = (currentPiece != null && colorIndex == currentPiece.getColor());
+        if (isActive) {
+            Color accent = new Color(255, 255, 255);
+            borderColor = blend(baseColor, accent, animT * 0.5f);
         }
 
-        // Draw outer glow with dynamic intensity
+        g2d.setStroke(new BasicStroke(3f));
+        g2d.setColor(new Color(borderColor.getRed(), borderColor.getGreen(), borderColor.getBlue(), 180));
+        g2d.drawRoundRect(x, y, BLOCK_SIZE, BLOCK_SIZE, 8, 8);
+
+        float glowPhase = (float)(Math.sin(System.currentTimeMillis() / 300.0 + colorIndex) + 1) * 0.5f;
+        float glowIntensity = isActive
+            ? 1.5f + (float)Math.sin(System.currentTimeMillis() / 200.0) * 0.5f
+            : 0.7f + glowPhase * 0.7f;
         for (int i = 3; i > 0; i--) {
             g2d.setColor(new Color(
                 baseColor.getRed(),
                 baseColor.getGreen(),
                 baseColor.getBlue(),
-                (int)(50 * glowIntensity / i)
+                (int)(60 * glowIntensity / i)
             ));
             g2d.fillRoundRect(
                 x - i * 2,
@@ -512,7 +520,6 @@ public class GameBoard extends JPanel {
             );
         }
 
-        // Draw main block with inner gradient
         GradientPaint gradient = new GradientPaint(
             x, y,
             baseColor,
@@ -524,12 +531,27 @@ public class GameBoard extends JPanel {
             )
         );
         g2d.setPaint(gradient);
-        g2d.fillRoundRect(x + 1, y + 1, BLOCK_SIZE - 2, BLOCK_SIZE - 2, 4, 4);
+        g2d.fillRoundRect(x + 2, y + 2, BLOCK_SIZE - 4, BLOCK_SIZE - 4, 6, 6);
 
-        // Draw highlight with dynamic opacity
-        float highlightOpacity = 0.4f + (float)Math.sin(System.currentTimeMillis() / 300.0) * 0.2f;
-        g2d.setColor(new Color(255, 255, 255, (int)(highlightOpacity * 255)));
-        g2d.fillRoundRect(x + 3, y + 3, BLOCK_SIZE - 12, BLOCK_SIZE - 12, 2, 2);
+        g2d.setColor(new Color(0, 0, 0, 40));
+        g2d.setStroke(new BasicStroke(2f));
+        g2d.drawRoundRect(x + 3, y + 3, BLOCK_SIZE - 6, BLOCK_SIZE - 6, 5, 5);
+
+        GradientPaint highlight = new GradientPaint(
+            x, y + 2,
+            new Color(255, 255, 255, 120),
+            x, y + BLOCK_SIZE / 2,
+            new Color(255, 255, 255, 0)
+        );
+        g2d.setPaint(highlight);
+        g2d.fillRoundRect(x + 4, y + 4, BLOCK_SIZE - 8, BLOCK_SIZE / 2 - 4, 6, 6);
+    }
+
+    private Color blend(Color c1, Color c2, float ratio) {
+        int r = (int)(c1.getRed() * (1 - ratio) + c2.getRed() * ratio);
+        int g = (int)(c1.getGreen() * (1 - ratio) + c2.getGreen() * ratio);
+        int b = (int)(c1.getBlue() * (1 - ratio) + c2.getBlue() * ratio);
+        return new Color(r, g, b);
     }
 
     private void drawGhostPiece(Graphics2D g2d) {

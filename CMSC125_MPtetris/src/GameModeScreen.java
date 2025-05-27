@@ -42,13 +42,13 @@ public class GameModeScreen extends JFrame {
         };
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
         mainPanel.setOpaque(false);
-        mainPanel.setBorder(BorderFactory.createEmptyBorder(100, 20, 50, 20));
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(70, 20, 40, 20));
 
         // Create mode selection panel
         JPanel modePanel = new JPanel();
         modePanel.setLayout(new BoxLayout(modePanel, BoxLayout.Y_AXIS));
         modePanel.setOpaque(false);
-        modePanel.setBorder(BorderFactory.createEmptyBorder(150, 0, 0, 0));
+        modePanel.setBorder(BorderFactory.createEmptyBorder(160, 0, 0, 0));
 
         // Create mode buttons with descriptions
         addModeButton(modePanel, "Single Player", "Classic Tetris experience with cosmic visuals",
@@ -69,7 +69,6 @@ public class GameModeScreen extends JFrame {
         });
         effectsTimer.start();
 
-        // Add key bindings
         addKeyBindings(mainPanel);
     }
 
@@ -101,15 +100,20 @@ public class GameModeScreen extends JFrame {
         FontMetrics fm = g2d.getFontMetrics();
         int titleWidth = fm.stringWidth(title);
         int x = (WINDOW_WIDTH - titleWidth) / 2;
-        int y = 150;
+        int y = 130;
 
-        // Draw outer glow
-        float alpha = 0.5f + (float)(Math.sin(selectionGlow) + 1) * 0.25f;
-        for (int i = 15; i > 0; i--) {
+        float t = (float)((Math.sin(selectionGlow) + 1) / 2.0);
+        Color animatedGlow = blend(UITheme.ACCENT_SECONDARY, UITheme.ACCENT_PRIMARY, t);
+
+        g2d.setColor(new Color(0, 0, 0, 140));
+        g2d.drawString(title, x + 5, y + 7);
+
+        float alpha = 0.22f + (float)(Math.sin(selectionGlow) + 1) * 0.10f;
+        for (int i = 16; i > 0; i--) {
             Color glowColor = new Color(
-                UITheme.ACCENT_SECONDARY.getRed(),
-                UITheme.ACCENT_SECONDARY.getGreen(),
-                UITheme.ACCENT_SECONDARY.getBlue(),
+                animatedGlow.getRed(),
+                animatedGlow.getGreen(),
+                animatedGlow.getBlue(),
                 (int)(alpha * 255 / i)
             );
             g2d.setColor(glowColor);
@@ -117,7 +121,6 @@ public class GameModeScreen extends JFrame {
             g2d.drawString(title, x - i/2, y - i/2);
         }
 
-        // Draw main text with gradient
         GradientPaint gradient = new GradientPaint(
             x, y - fm.getAscent(),
             UITheme.ACCENT_SECONDARY,
@@ -126,6 +129,53 @@ public class GameModeScreen extends JFrame {
         );
         g2d.setPaint(gradient);
         g2d.drawString(title, x, y);
+
+        String subtitle = "Choose Your Cosmic Path";
+        g2d.setFont(UITheme.SUBTITLE_FONT);
+        fm = g2d.getFontMetrics();
+        float spacing = 2.5f;
+        int subtitleWidth = measureStringWithSpacing(g2d, subtitle, spacing);
+        int subtitleX = (WINDOW_WIDTH - subtitleWidth) / 2;
+        int subtitleY = y + 70;
+
+        int pillPadX = 38, pillPadY = 18;
+        int pillWidth = subtitleWidth + pillPadX;
+        int pillHeight = fm.getHeight() + pillPadY;
+        int pillX = subtitleX - pillPadX/2;
+        int pillY = subtitleY - fm.getAscent() - pillPadY/2;
+        g2d.setColor(new Color(120, 80, 180, 70));
+        g2d.fillRoundRect(pillX-8, pillY-6, pillWidth+16, pillHeight+12, pillHeight+12, pillHeight+12);
+
+        g2d.setColor(new Color(30, 30, 40, 180));
+        g2d.fillRoundRect(pillX, pillY, pillWidth, pillHeight, pillHeight, pillHeight);
+
+        g2d.setColor(UITheme.TEXT_SECONDARY);
+        drawStringWithSpacing(g2d, subtitle, subtitleX, subtitleY, spacing);
+    }
+
+    private Color blend(Color c1, Color c2, float ratio) {
+        int r = (int)(c1.getRed() * (1 - ratio) + c2.getRed() * ratio);
+        int g = (int)(c1.getGreen() * (1 - ratio) + c2.getGreen() * ratio);
+        int b = (int)(c1.getBlue() * (1 - ratio) + c2.getBlue() * ratio);
+        return new Color(r, g, b);
+    }
+
+    private int drawStringWithSpacing(Graphics2D g2d, String text, int x, int y, float spacing) {
+        int startX = x;
+        for (char c : text.toCharArray()) {
+            String s = String.valueOf(c);
+            g2d.drawString(s, x, y);
+            x += g2d.getFontMetrics().charWidth(c) + spacing;
+        }
+        return x - startX;
+    }
+
+    private int measureStringWithSpacing(Graphics2D g2d, String text, float spacing) {
+        int width = 0;
+        for (char c : text.toCharArray()) {
+            width += g2d.getFontMetrics().charWidth(c) + spacing;
+        }
+        return width;
     }
 
     private void updateSelectionGlow() {
