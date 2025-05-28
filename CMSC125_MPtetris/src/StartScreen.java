@@ -2,6 +2,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.*;
+import java.util.List;
 
 /**
  * The start screen window that appears before the main game.
@@ -53,16 +54,6 @@ public class StartScreen extends JFrame {
                 drawTitle(g2d);
 
                 g2d.setComposite(oldComp);
-
-                String prompt = "Press Enter to Start";
-                g2d.setFont(UITheme.SUBTITLE_FONT.deriveFont(Font.PLAIN, 18f));
-                FontMetrics pfm = g2d.getFontMetrics();
-                int promptWidth = pfm.stringWidth(prompt);
-                int px = (WINDOW_WIDTH - promptWidth) / 2;
-                int py = WINDOW_HEIGHT - 80;
-                float promptAlpha = 0.7f * promptAnim * fadeInAlpha;
-                g2d.setColor(new Color(180, 220, 255, (int)(255 * promptAlpha)));
-                g2d.drawString(prompt, px, py);
                 g2d.dispose();
             }
         };
@@ -79,22 +70,27 @@ public class StartScreen extends JFrame {
         // Create buttons
         JButton startButton = UITheme.createStyledButton("Start Game");
         JButton helpButton = UITheme.createStyledButton("How to Play");
+        JButton highScoreButton = UITheme.createStyledButton("High Scores");
         JButton exitButton = UITheme.createStyledButton("Exit");
 
         // Center align buttons
         startButton.setAlignmentX(Component.CENTER_ALIGNMENT);
         helpButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        highScoreButton.setAlignmentX(Component.CENTER_ALIGNMENT);
         exitButton.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         // Add button actions
         startButton.addActionListener(e -> startGame());
         helpButton.addActionListener(e -> showHelp());
+        highScoreButton.addActionListener(e -> showHighScores());
         exitButton.addActionListener(e -> System.exit(0));
 
         // Add vertical spacing between buttons
         contentPanel.add(startButton);
         contentPanel.add(Box.createRigidArea(new Dimension(0, 20)));
         contentPanel.add(helpButton);
+        contentPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+        contentPanel.add(highScoreButton);
         contentPanel.add(Box.createRigidArea(new Dimension(0, 20)));
         contentPanel.add(exitButton);
 
@@ -284,6 +280,59 @@ public class StartScreen extends JFrame {
 
         helpDialog.add(helpPanel);
         helpDialog.setVisible(true);
+    }
+
+    private void showHighScores() {
+        JDialog highScoreDialog = new JDialog(this, "High Scores", true);
+        highScoreDialog.setSize(400, 500);
+        highScoreDialog.setLocationRelativeTo(this);
+
+        JPanel highScorePanel = UITheme.createStyledPanel();
+        highScorePanel.setLayout(new BoxLayout(highScorePanel, BoxLayout.Y_AXIS));
+        highScorePanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        // Add title
+        JLabel titleLabel = UITheme.createStyledLabel("HIGH SCORES", UITheme.SUBTITLE_FONT);
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        highScorePanel.add(titleLabel);
+        highScorePanel.add(Box.createRigidArea(new Dimension(0, 30)));
+
+        // Get and display scores
+        HighScoreManager highScoreManager = new HighScoreManager();
+        List<HighScoreManager.ScoreEntry> scores = highScoreManager.getHighScores();
+
+        if (scores.isEmpty()) {
+            JLabel noScoresLabel = UITheme.createStyledLabel("No high scores yet!", UITheme.TEXT_FONT);
+            noScoresLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            highScorePanel.add(noScoresLabel);
+        } else {
+            for (int i = 0; i < scores.size(); i++) {
+                HighScoreManager.ScoreEntry entry = scores.get(i);
+                String scoreText = String.format("%d. %s - %d pts", 
+                    i + 1, entry.getUsername(), entry.getScore());
+                String statsText = String.format("   Level %d | %d lines", 
+                    entry.getLevel(), entry.getLines());
+                
+                JLabel scoreLabel = UITheme.createStyledLabel(scoreText, UITheme.TEXT_FONT);
+                JLabel statsLabel = UITheme.createStyledLabel(statsText, UITheme.TEXT_FONT);
+                
+                scoreLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                statsLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                
+                highScorePanel.add(scoreLabel);
+                highScorePanel.add(statsLabel);
+                highScorePanel.add(Box.createRigidArea(new Dimension(0, 15)));
+            }
+        }
+
+        JButton closeButton = UITheme.createStyledButton("Close");
+        closeButton.addActionListener(e -> highScoreDialog.dispose());
+        closeButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        highScorePanel.add(Box.createRigidArea(new Dimension(0, 30)));
+        highScorePanel.add(closeButton);
+
+        highScoreDialog.add(highScorePanel);
+        highScoreDialog.setVisible(true);
     }
 
     private void cleanup() {
