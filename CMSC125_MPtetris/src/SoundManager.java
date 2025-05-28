@@ -6,10 +6,13 @@ import java.util.Map;
 
 public class SoundManager {
     private Clip backgroundMusic;
+    private Clip menuMusic;
     private Map<String, Clip> soundEffects;
-    private float masterVolume = 1.0f;
+    private float masterVolume = 0.7f;
+    private float menuVolume = 0.7f;
     private boolean isMultiplayer;
     private FloatControl musicVolumeControl;
+    private FloatControl menuVolumeControl;
 
     public SoundManager(boolean isMultiplayer) {
         this.isMultiplayer = isMultiplayer;
@@ -19,8 +22,9 @@ public class SoundManager {
 
     private void loadSounds() {
         try {
-            // Load background music
-            URL musicURL = getClass().getResource("/sounds/music.wav");
+            // Load background music (randomly choose between bg.wav and bg2.wav)
+            String bgMusic = Math.random() < 0.5 ? "bg.wav" : "bg2.wav";
+            URL musicURL = getClass().getResource("/sounds/" + bgMusic);
             if (musicURL != null) {
                 backgroundMusic = AudioSystem.getClip();
                 AudioInputStream stream = AudioSystem.getAudioInputStream(musicURL);
@@ -29,6 +33,21 @@ public class SoundManager {
                 // Get volume control
                 if (backgroundMusic.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
                     musicVolumeControl = (FloatControl) backgroundMusic.getControl(FloatControl.Type.MASTER_GAIN);
+                    setMusicVolume(masterVolume);
+                }
+            }
+
+            // Load menu music
+            URL menuURL = getClass().getResource("/sounds/menu.wav");
+            if (menuURL != null) {
+                menuMusic = AudioSystem.getClip();
+                AudioInputStream stream = AudioSystem.getAudioInputStream(menuURL);
+                menuMusic.open(stream);
+                
+                // Get volume control for menu music
+                if (menuMusic.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
+                    menuVolumeControl = (FloatControl) menuMusic.getControl(FloatControl.Type.MASTER_GAIN);
+                    setMenuVolume(menuVolume);
                 }
             }
 
@@ -98,6 +117,30 @@ public class SoundManager {
         }
     }
 
+    public void playMenuMusic() {
+        if (menuMusic != null) {
+            menuMusic.setFramePosition(0);
+            menuMusic.loop(Clip.LOOP_CONTINUOUSLY);
+            setMenuVolume(menuVolume);
+        }
+    }
+
+    public void stopMenuMusic() {
+        if (menuMusic != null) {
+            menuMusic.stop();
+        }
+    }
+
+    private void setMenuVolume(float volume) {
+        if (menuVolumeControl != null) {
+            float min = menuVolumeControl.getMinimum();
+            float max = menuVolumeControl.getMaximum();
+            float range = max - min;
+            float adjustedVolume = min + (range * volume);
+            menuVolumeControl.setValue(adjustedVolume);
+        }
+    }
+
     public void playPieceDropSound() {
         playRandomVariation("drop", 3);
     }
@@ -134,6 +177,9 @@ public class SoundManager {
     public void cleanup() {
         if (backgroundMusic != null) {
             backgroundMusic.close();
+        }
+        if (menuMusic != null) {
+            menuMusic.close();
         }
         for (Clip clip : soundEffects.values()) {
             if (clip != null) clip.close();

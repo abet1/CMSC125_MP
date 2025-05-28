@@ -1,15 +1,20 @@
 import java.awt.*;
 import java.awt.geom.*;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class CosmicEffects {
-    private ArrayList<Particle> particles;
-    private ArrayList<GlowingShape> glowingShapes;
-    private ArrayList<WaveEffect> waves;
-    private final Random random;
     private final int width;
     private final int height;
+    private final List<Star> stars;
+    private final List<Particle> particles;
+    private final Random random;
+    private final AtomicBoolean running;
+    private Thread animationThread;
+    private ArrayList<GlowingShape> glowingShapes;
+    private ArrayList<WaveEffect> waves;
     private float hueShift = 0;
     private float gridRotation = 0;
     private float gridPulse = 0;
@@ -28,16 +33,25 @@ public class CosmicEffects {
     public CosmicEffects(int width, int height) {
         this.width = width;
         this.height = height;
-        this.random = new Random();
+        this.stars = new ArrayList<>();
         this.particles = new ArrayList<>();
+        this.random = new Random();
+        this.running = new AtomicBoolean(true);
         this.glowingShapes = new ArrayList<>();
         this.waves = new ArrayList<>();
         this.lastTime = System.currentTimeMillis();
-        initializeShapes();
-    }
 
-    private void initializeShapes() {
-        // Add some initial floating shapes
+        // Initialize stars
+        for (int i = 0; i < 100; i++) {
+            stars.add(new Star(
+                random.nextInt(width),
+                random.nextInt(height),
+                random.nextFloat() * 2 + 1,
+                random.nextFloat() * 0.5f + 0.1f
+            ));
+        }
+
+        // Initialize floating shapes
         for (int i = 0; i < 5; i++) {
             glowingShapes.add(new GlowingShape(
                 random.nextInt(width),
@@ -46,104 +60,57 @@ public class CosmicEffects {
                 random.nextFloat() * 360
             ));
         }
+
+        // Start animation thread
+        startAnimationThread();
     }
 
-    public void addLineClearEffect(int y) {
-        // Add pixelated expanding ring
-        waves.add(new PixelatedWaveEffect(width/2, y, width * 2f, 60));
-        
-        // Add pixel burst
-        particles.add(new PixelatedFlashParticle(width/2, y));
-        
-        // Add explosive burst of pixel particles
-        for (int i = 0; i < 100; i++) {
-            float angle = random.nextFloat() * (float)Math.PI * 2;
-            float speed = random.nextFloat() * 12 + 6;
-            Color color = TETRIS_COLORS[random.nextInt(TETRIS_COLORS.length)];
-            particles.add(new PixelatedParticle(
-                width / 2,
-                y,
-                (float)Math.cos(angle) * speed,
-                (float)Math.sin(angle) * speed,
-                color,
-                random.nextInt(4) + 2 // Random pixel size
-            ));
-        }
-
-        // Add pixelated sparkles
-        for (int i = 0; i < 50; i++) {
-            float angle = random.nextFloat() * (float)Math.PI * 2;
-            float speed = random.nextFloat() * 4 + 2;
-            Color color = TETRIS_COLORS[random.nextInt(TETRIS_COLORS.length)];
-            particles.add(new PixelatedSparkle(
-                width / 2,
-                y,
-                (float)Math.cos(angle) * speed,
-                (float)Math.sin(angle) * speed,
-                color
-            ));
-        }
-    }
-
-    public void addPieceDropEffect(int x, int y) {
-        // Add pixelated wave
-        waves.add(new PixelatedWaveEffect(x, y, 60, 60));
-        
-        // Add pixel burst
-        particles.add(new PixelatedFlashParticle(x, y));
-        
-        // Add pixelated light burst
-        Color dropColor = TETRIS_COLORS[random.nextInt(TETRIS_COLORS.length)];
-        for (int i = 0; i < 20; i++) {
-            float angle = random.nextFloat() * (float)Math.PI * 2;
-            float speed = random.nextFloat() * 3f + 1f;
-            particles.add(new PixelatedParticle(
-                x,
-                y,
-                (float)Math.cos(angle) * speed,
-                (float)Math.sin(angle) * speed,
-                dropColor,
-                2 // Small pixel size
-            ));
-        }
-    }
-
-    public void addRotationEffect(int x, int y) {
-        // Add spiral particles
-        for (int i = 0; i < 8; i++) {
-            float angle = (float)i / 8 * (float)Math.PI * 2;
-            particles.add(new Particle(
-                x,
-                y,
-                (float)Math.cos(angle) * 2,
-                (float)Math.sin(angle) * 2,
-                angle * 360 / (float)(Math.PI * 2)
-            ));
-        }
+    private void startAnimationThread() {
+        animationThread = new Thread(() -> {
+            while (running.get()) {
+                update();
+                try {
+                    Thread.sleep(16); // ~60 FPS
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        });
+        animationThread.setDaemon(true);
+        animationThread.start();
     }
 
     public void update() {
-        long currentTime = System.currentTimeMillis();
-        float delta = (currentTime - lastTime) / 1000f;
-        lastTime = currentTime;
+        // Update stars
+        for (Star star : stars) {
+            star.update();
+            if (star.y > height) {
+                star.y = 0;
+                star.x = random.nextInt(width);
+            }
+        }
 
         // Update particles
-        particles.removeIf(particle -> !particle.update(delta));
+        particles.removeIf(particle -> particle.life <= 0);
+        for (Particle particle : particles) {
+            particle.update();
+        }
 
         // Update waves
-        waves.removeIf(wave -> !wave.update(delta));
+        waves.removeIf(wave -> !wave.update(0.016f));
 
         // Update glowing shapes
         for (GlowingShape shape : glowingShapes) {
-            shape.update(delta);
+            shape.update(0.016f);
         }
 
         // Update grid effects
-        gridRotation += delta * 0.1f;
-        gridPulse = (float)Math.sin(currentTime / 1000.0) * 0.1f;
+        gridRotation += 0.016f * 0.1f;
+        gridPulse = (float)Math.sin(System.currentTimeMillis() / 1000.0) * 0.1f;
 
         // Update global hue shift
-        hueShift = (hueShift + delta * 10) % 360;
+        hueShift = (hueShift + 0.016f * 10) % 360;
     }
 
     public void draw(Graphics2D g2d) {
@@ -158,9 +125,28 @@ public class CosmicEffects {
             wave.draw(g2d);
         }
 
+        // Draw stars
+        for (Star star : stars) {
+            float alpha = 0.5f + (float)Math.sin(System.currentTimeMillis() * star.twinkleSpeed) * 0.5f;
+            g2d.setColor(new Color(1f, 1f, 1f, alpha));
+            g2d.fillOval((int)star.x, (int)star.y, (int)star.size, (int)star.size);
+        }
+
         // Draw particles
         for (Particle particle : particles) {
-            particle.draw(g2d);
+            float alpha = particle.life / particle.maxLife;
+            g2d.setColor(new Color(
+                particle.color.getRed(),
+                particle.color.getGreen(),
+                particle.color.getBlue(),
+                (int)(alpha * 255)
+            ));
+            g2d.fillOval(
+                (int)(particle.x - particle.size/2),
+                (int)(particle.y - particle.size/2),
+                (int)particle.size,
+                (int)particle.size
+            );
         }
 
         // Draw glowing shapes
@@ -211,53 +197,98 @@ public class CosmicEffects {
         g2d.setTransform(oldTransform);
     }
 
-    private class Particle {
+    public void addRotationEffect(int x, int y) {
+        for (int i = 0; i < 8; i++) {
+            float angle = (float)(i * Math.PI / 4);
+            float speed = 2f;
+            float vx = (float)Math.cos(angle) * speed;
+            float vy = (float)Math.sin(angle) * speed;
+            particles.add(new Particle(x, y, vx, vy, new Color(100, 200, 255)));
+        }
+    }
+
+    public void addPieceDropEffect(int x, int y) {
+        for (int i = 0; i < 12; i++) {
+            float angle = random.nextFloat() * (float)Math.PI * 2;
+            float speed = random.nextFloat() * 3f + 1f;
+            float vx = (float)Math.cos(angle) * speed;
+            float vy = (float)Math.sin(angle) * speed;
+            particles.add(new Particle(x, y, vx, vy, new Color(255, 255, 255)));
+        }
+    }
+
+    public void addLineClearEffect(int y) {
+        for (int i = 0; i < 20; i++) {
+            float x = random.nextFloat() * width;
+            float vx = (random.nextFloat() - 0.5f) * 4f;
+            float vy = -random.nextFloat() * 4f - 2f;
+            particles.add(new Particle(x, y, vx, vy, new Color(255, 200, 100)));
+        }
+    }
+
+    public void cleanup() {
+        running.set(false);
+        if (animationThread != null) {
+            animationThread.interrupt();
+            try {
+                animationThread.join(100); // Wait for thread to finish with timeout
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            animationThread = null;
+        }
+        
+        // Clear all collections
+        stars.clear();
+        particles.clear();
+        glowingShapes.clear();
+        waves.clear();
+        
+        // Force garbage collection
+        System.gc();
+    }
+
+    private static class Star {
+        float x, y;
+        final float size;
+        final float twinkleSpeed;
+
+        Star(float x, float y, float size, float twinkleSpeed) {
+            this.x = x;
+            this.y = y;
+            this.size = size;
+            this.twinkleSpeed = twinkleSpeed;
+        }
+
+        void update() {
+            y += 0.2f;
+        }
+    }
+
+    private static class Particle {
         float x, y;
         float vx, vy;
-        float hue;
-        float alpha = 1.0f;
-        float size;
+        float life;
+        final float maxLife;
+        final Color color;
+        final float size;
 
-        public Particle(float x, float y, float vx, float vy, float hue) {
+        Particle(float x, float y, float vx, float vy, Color color) {
             this.x = x;
             this.y = y;
             this.vx = vx;
             this.vy = vy;
-            this.hue = hue;
-            this.size = random.nextFloat() * 4 + 2;
+            this.color = color;
+            this.maxLife = 60;
+            this.life = maxLife;
+            this.size = 4f;
         }
 
-        public boolean update(float delta) {
-            x += vx * 30 * delta;
-            y += vy * 30 * delta;
-            alpha -= delta * 0.5f;
-            return alpha > 0;
-        }
-
-        public void draw(Graphics2D g2d) {
-            Color color = Color.getHSBColor(hue / 360f, 0.8f, 1.0f);
-            g2d.setColor(new Color(
-                color.getRed(),
-                color.getGreen(),
-                color.getBlue(),
-                (int)(alpha * 255)
-            ));
-
-            // Draw glowing particle
-            for (int i = 3; i > 0; i--) {
-                float glowSize = size * (i * 0.7f);
-                g2d.setComposite(AlphaComposite.getInstance(
-                    AlphaComposite.SRC_OVER,
-                    alpha * (1f / i)
-                ));
-                g2d.fill(new Ellipse2D.Float(
-                    x - glowSize/2,
-                    y - glowSize/2,
-                    glowSize,
-                    glowSize
-                ));
-            }
-            g2d.setComposite(AlphaComposite.SrcOver);
+        void update() {
+            x += vx;
+            y += vy;
+            vy += 0.1f;
+            life--;
         }
     }
 
@@ -359,178 +390,6 @@ public class CosmicEffects {
                     10,
                     10
                 ));
-            }
-        }
-    }
-
-    private class PixelatedParticle extends Particle {
-        protected Color color;
-        protected int pixelSize;
-
-        public PixelatedParticle(float x, float y, float vx, float vy, Color color, int pixelSize) {
-            super(x, y, vx, vy, 0);
-            this.color = color;
-            this.pixelSize = pixelSize;
-            this.alpha = 1.0f;
-        }
-
-        @Override
-        public boolean update(float delta) {
-            x += vx * delta * 60;
-            y += vy * delta * 60;
-            alpha -= delta * 0.8f;
-            return alpha > 0;
-        }
-
-        @Override
-        public void draw(Graphics2D g2d) {
-            int alpha = (int)(this.alpha * 255);
-            Color currentColor = new Color(
-                color.getRed(),
-                color.getGreen(),
-                color.getBlue(),
-                alpha
-            );
-            g2d.setColor(currentColor);
-
-            // Draw pixelated particle
-            int px = (int)(x - pixelSize * PIXEL_SIZE / 2);
-            int py = (int)(y - pixelSize * PIXEL_SIZE / 2);
-            for(int i = 0; i < pixelSize; i++) {
-                for(int j = 0; j < pixelSize; j++) {
-                    g2d.fillRect(
-                        px + i * PIXEL_SIZE,
-                        py + j * PIXEL_SIZE,
-                        PIXEL_SIZE,
-                        PIXEL_SIZE
-                    );
-                }
-            }
-        }
-    }
-
-    private class PixelatedSparkle extends PixelatedParticle {
-        private float twinklePhase = 0;
-
-        public PixelatedSparkle(float x, float y, float vx, float vy, Color color) {
-            super(x, y, vx, vy, color, 2);
-        }
-
-        @Override
-        public boolean update(float delta) {
-            super.update(delta);
-            twinklePhase += delta * 15;
-            return alpha > 0;
-        }
-
-        @Override
-        public void draw(Graphics2D g2d) {
-            float twinkle = (float)Math.abs(Math.sin(twinklePhase));
-            int alpha = (int)(this.alpha * twinkle * 255);
-            Color currentColor = new Color(
-                color.getRed(),
-                color.getGreen(),
-                color.getBlue(),
-                alpha
-            );
-            g2d.setColor(currentColor);
-
-            // Draw cross-shaped pixel sparkle
-            g2d.fillRect((int)x - PIXEL_SIZE, (int)y, PIXEL_SIZE * 3, PIXEL_SIZE);
-            g2d.fillRect((int)x, (int)y - PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE * 3);
-        }
-    }
-
-    private class PixelatedFlashParticle extends Particle {
-        private Color[] colors;
-
-        public PixelatedFlashParticle(float x, float y) {
-            super(x, y, 0, 0, 0);
-            this.alpha = 1.0f;
-            this.colors = new Color[]{
-                TETRIS_COLORS[random.nextInt(TETRIS_COLORS.length)],
-                TETRIS_COLORS[random.nextInt(TETRIS_COLORS.length)],
-                TETRIS_COLORS[random.nextInt(TETRIS_COLORS.length)]
-            };
-        }
-
-        @Override
-        public boolean update(float delta) {
-            alpha -= delta * 4f;
-            return alpha > 0;
-        }
-
-        @Override
-        public void draw(Graphics2D g2d) {
-            int size = 20;
-            int centerX = (int)x;
-            int centerY = (int)y;
-
-            for (int i = 0; i < 3; i++) {
-                int currentSize = size - i * 4;
-                Color color = new Color(
-                    colors[i].getRed(),
-                    colors[i].getGreen(),
-                    colors[i].getBlue(),
-                    (int)(alpha * 255 / (i + 1))
-                );
-                g2d.setColor(color);
-
-                // Draw pixelated diamond shape
-                for (int j = 0; j < currentSize; j++) {
-                    int offset = Math.abs(currentSize/2 - j);
-                    for (int k = 0; k < currentSize - offset*2; k++) {
-                        g2d.fillRect(
-                            centerX - (currentSize/2 - offset) * PIXEL_SIZE + k * PIXEL_SIZE,
-                            centerY - currentSize/2 * PIXEL_SIZE + j * PIXEL_SIZE,
-                            PIXEL_SIZE,
-                            PIXEL_SIZE
-                        );
-                    }
-                }
-            }
-        }
-    }
-
-    private class PixelatedWaveEffect extends WaveEffect {
-        public PixelatedWaveEffect(float x, float y, float width, float height) {
-            super(x, y, width, height);
-        }
-
-        @Override
-        public void draw(Graphics2D g2d) {
-            int alpha = (int)(intensity * 255);
-            
-            // Draw expanding pixelated rings
-            for (int i = 0; i < 3; i++) {
-                float scale = 1 + (1 - intensity) * (i + 1) * 0.5f;
-                float currentWidth = width * scale;
-                float currentHeight = height * scale;
-                
-                Color ringColor = TETRIS_COLORS[i % TETRIS_COLORS.length];
-                g2d.setColor(new Color(
-                    ringColor.getRed(),
-                    ringColor.getGreen(),
-                    ringColor.getBlue(),
-                    alpha / (i + 1)
-                ));
-
-                // Draw pixelated rectangle outline
-                int left = (int)(x - currentWidth/2);
-                int top = (int)(y - currentHeight/2);
-                int right = (int)(x + currentWidth/2);
-                int bottom = (int)(y + currentHeight/2);
-
-                // Draw horizontal lines
-                for (int px = left; px < right; px += PIXEL_SIZE) {
-                    g2d.fillRect(px, top, PIXEL_SIZE, PIXEL_SIZE);
-                    g2d.fillRect(px, bottom, PIXEL_SIZE, PIXEL_SIZE);
-                }
-                // Draw vertical lines
-                for (int py = top; py < bottom; py += PIXEL_SIZE) {
-                    g2d.fillRect(left, py, PIXEL_SIZE, PIXEL_SIZE);
-                    g2d.fillRect(right, py, PIXEL_SIZE, PIXEL_SIZE);
-                }
             }
         }
     }
