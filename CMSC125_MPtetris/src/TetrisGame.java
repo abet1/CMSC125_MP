@@ -357,7 +357,6 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
             if (newLevel > level) {
                 level = newLevel;
                 soundManager.playLevelUpSound();
-                soundManager.updateLevel(level);
             }
 
             // Update UI
