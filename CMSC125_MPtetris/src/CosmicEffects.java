@@ -1,6 +1,7 @@
 import java.awt.*;
 import java.awt.geom.*;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -13,8 +14,8 @@ public class CosmicEffects {
     private final Random random;
     private final AtomicBoolean running;
     private Thread animationThread;
-    private ArrayList<GlowingShape> glowingShapes;
-    private ArrayList<WaveEffect> waves;
+    private List<GlowingShape> glowingShapes;
+    private List<WaveEffect> waves;
     private float hueShift = 0;
     private float gridRotation = 0;
     private float gridPulse = 0;

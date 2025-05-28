@@ -329,6 +329,7 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
             gameBoard.showPauseMessage();
             soundManager.stopBackgroundMusic();
         } else {
+            gameBoard.clearMessage();
             soundManager.playBackgroundMusic();
         }
     }
