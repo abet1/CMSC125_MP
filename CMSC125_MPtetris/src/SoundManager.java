@@ -8,8 +8,8 @@ public class SoundManager {
     private Clip backgroundMusic;
     private Clip menuMusic;
     private Map<String, Clip> soundEffects;
-    private float masterVolume = 0.7f;
-    private float menuVolume = 0.7f;
+    private float masterVolume = 0.8f;
+    private float menuVolume = 0.9f;
     private boolean isMultiplayer;
     private FloatControl musicVolumeControl;
     private FloatControl menuVolumeControl;
@@ -90,14 +90,6 @@ public class SoundManager {
     public void stopBackgroundMusic() {
         if (backgroundMusic != null) {
             backgroundMusic.stop();
-        }
-    }
-
-    public void updateLevel(int level) {
-        // Increase music volume slightly with level
-        if (musicVolumeControl != null) {
-            float volumeIncrease = Math.min((level - 1) * 0.1f, 0.5f); // Max 50% increase
-            setMusicVolume(masterVolume + volumeIncrease);
         }
     }
 

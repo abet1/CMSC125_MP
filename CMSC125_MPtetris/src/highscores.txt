@@ -1,0 +1,5 @@
+josh,10200,37,4
+highscorenijosh,9100,30,4
+joshy,4600,23,3
+joshagain,4000,19,2
+albertpanget,900,5,1

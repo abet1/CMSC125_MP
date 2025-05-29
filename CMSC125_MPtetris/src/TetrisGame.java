@@ -24,6 +24,8 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
     private JLabel scoreLabel;
     private JLabel levelLabel;
     private JLabel linesLabel;
+    private JLabel highScoreLabel;
+    private HighScoreManager highScoreManager;
 
     // Game state
     private int score = 0;
@@ -46,6 +48,9 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
 
         // Initialize sound manager for single player
         soundManager = new SoundManager(false);
+        
+        // Initialize high score manager
+        highScoreManager = new HighScoreManager();
 
         // Set up the main game panels
         setupGameComponents();
@@ -114,16 +119,20 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
         scoreLabel = UITheme.createStyledLabel("SCORE: 0", UITheme.TEXT_FONT);
         levelLabel = UITheme.createStyledLabel("LEVEL: 1", UITheme.TEXT_FONT);
         linesLabel = UITheme.createStyledLabel("LINES: 0", UITheme.TEXT_FONT);
+        highScoreLabel = UITheme.createStyledLabel("HIGH SCORE: " + highScoreManager.getHighestScore(), UITheme.TEXT_FONT);
 
         scoreLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         levelLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         linesLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        highScoreLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         statsPanel.add(scoreLabel);
         statsPanel.add(Box.createVerticalStrut(5));
         statsPanel.add(levelLabel);
         statsPanel.add(Box.createVerticalStrut(5));
         statsPanel.add(linesLabel);
+        statsPanel.add(Box.createVerticalStrut(5));
+        statsPanel.add(highScoreLabel);
 
         // Controls panel
         JPanel controlsPanel = new JPanel();
@@ -320,6 +329,7 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
             gameBoard.showPauseMessage();
             soundManager.stopBackgroundMusic();
         } else {
+            gameBoard.clearMessage();
             soundManager.playBackgroundMusic();
         }
     }
@@ -347,7 +357,6 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
             if (newLevel > level) {
                 level = newLevel;
                 soundManager.playLevelUpSound();
-                soundManager.updateLevel(level);
             }
 
             // Update UI
@@ -365,6 +374,7 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
         scoreLabel.setText("SCORE: " + score);
         levelLabel.setText("LEVEL: " + level);
         linesLabel.setText("LINES: " + linesCleared);
+        highScoreLabel.setText("HIGH SCORE: " + highScoreManager.getHighestScore());
 
         // Update label colors based on level
         Color levelColor = Color.getHSBColor((level * 0.1f) % 1.0f, 0.8f, 1.0f);
@@ -400,9 +410,72 @@ public class TetrisGame extends JFrame implements TetrisGameInterface {
      */
     public void gameOver() {
         isGameOver.set(true);
-        gameBoard.showGameOverMessage();
         soundManager.playGameOverSound();
-        soundManager.stopBackgroundMusic();
+        
+        // Show save score dialog
+        JDialog scoreDialog = new JDialog(this, "Game Over", true);
+        scoreDialog.setSize(400, 400);
+        scoreDialog.setLocationRelativeTo(this);
+
+        JPanel scorePanel = UITheme.createStyledPanel();
+        scorePanel.setLayout(new BoxLayout(scorePanel, BoxLayout.Y_AXIS));
+        scorePanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        // Add title and score
+        JLabel titleLabel = UITheme.createStyledLabel("GAME OVER", UITheme.SUBTITLE_FONT);
+        JLabel scoreLabel = UITheme.createStyledLabel("Score: " + score, UITheme.TEXT_FONT);
+        JLabel statsLabel = UITheme.createStyledLabel(
+            String.format("Level: %d | Lines: %d", level, linesCleared), 
+            UITheme.TEXT_FONT
+        );
+        
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        scoreLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        statsLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        scorePanel.add(titleLabel);
+        scorePanel.add(Box.createRigidArea(new Dimension(0, 20)));
+        scorePanel.add(scoreLabel);
+        scorePanel.add(Box.createRigidArea(new Dimension(0, 10)));
+        scorePanel.add(statsLabel);
+        scorePanel.add(Box.createRigidArea(new Dimension(0, 30)));
+
+        // Add text field
+        JTextField nameField = new JTextField(20);
+        nameField.setMaximumSize(new Dimension(200, 30));
+        nameField.setAlignmentX(Component.CENTER_ALIGNMENT);
+        scorePanel.add(nameField);
+        scorePanel.add(Box.createRigidArea(new Dimension(0, 30)));
+
+        // Add buttons directly to the main panel
+        JButton saveButton = UITheme.createStyledButton("Save Score");
+        JButton skipButton = UITheme.createStyledButton("Don't Save");
+
+        saveButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        skipButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        saveButton.addActionListener(e -> {
+            String username = nameField.getText().trim();
+            if (!username.isEmpty()) {
+                highScoreManager.saveHighScore(username, score, linesCleared, level);
+                scoreDialog.dispose();
+            }
+        });
+
+        skipButton.addActionListener(e -> scoreDialog.dispose());
+
+        scorePanel.add(saveButton);
+        scorePanel.add(Box.createRigidArea(new Dimension(0, 15)));
+        scorePanel.add(skipButton);
+
+        scoreDialog.add(scorePanel);
+        scoreDialog.setVisible(true);
+        
+        // Show game over message
+        gameBoard.showGameOverMessage();
+        
+        // Keep the game window open for M/R keys
+        gameBoard.requestFocus();
     }
 
     /**
